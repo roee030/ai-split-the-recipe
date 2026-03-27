@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #F7F6F3;
+  --color-surface: #FFFFFF;
+  --color-primary: #0D0D1A;
+  --color-accent: #FF6534;
+  --color-accent-soft: #FFF0EB;
+  --color-text: #0D0D1A;
+  --color-text-muted: #7B7A8A;
+  --color-border: #E8E8F0;
+  --color-success: #22C55E;
+  --person-1: #FF6B35;
+  --person-2: #3B82F6;
+  --person-3: #10B981;
+  --person-4: #8B5CF6;
+  --person-5: #F59E0B;
+  --person-6: #EC4899;
+  --person-7: #14B8A6;
+  --person-8: #EF4444;
+}
+
+* { -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  overscroll-behavior: none;
+}
+
+/* Hide scrollbars while preserving scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
