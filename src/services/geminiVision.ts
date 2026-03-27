@@ -2,7 +2,7 @@ import type { ParsedReceipt } from '../types/receipt.types';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
 
-const GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+const GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 const UPLOAD_URL = `https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart&key=${API_KEY}`;
 
 const PROMPT = `You are a receipt parser. Analyze this receipt image and extract ALL line items.
