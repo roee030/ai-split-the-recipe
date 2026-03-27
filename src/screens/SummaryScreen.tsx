@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { Share2, RotateCcw, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { Share2, RotateCcw, CheckCircle, AlertCircle } from 'lucide-react';
+import { BackButton } from '../components/common/BackButton';
 import { useSession } from '../context/SplitSessionContext';
 import { ScreenContainer } from '../components/common/ScreenContainer';
 import { SummaryCard } from '../components/payment/SummaryCard';
@@ -40,13 +41,9 @@ export function SummaryScreen() {
     <ScreenContainer>
       <div className="px-5 pt-12 pb-6">
         <div className="flex items-center justify-between mb-6">
-          <p className="text-xs font-bold text-accent uppercase tracking-widest">Step 04 of 04</p>
+          <BackButton screen="summary" />
           <p className="text-xs font-semibold text-muted">SplitSnap</p>
         </div>
-        <button onClick={() => setScreen('tip')} className="text-muted mb-4 flex items-center gap-1">
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back</span>
-        </button>
         <div className="flex items-start justify-between">
           <div>
             <h2 className="font-display text-3xl font-bold text-primary">Summary</h2>

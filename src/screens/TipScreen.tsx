@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, ArrowLeft } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
+import { BackButton } from '../components/common/BackButton';
 import { useSession } from '../context/SplitSessionContext';
 import { ScreenContainer } from '../components/common/ScreenContainer';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
@@ -37,13 +38,9 @@ export function TipScreen() {
     <ScreenContainer>
       <div className="px-5 pt-12 pb-6">
         <div className="flex items-center justify-between mb-6">
-          <p className="text-xs font-bold text-accent uppercase tracking-widest">Step 03 of 04</p>
+          <BackButton screen="tip" />
           <p className="text-xs font-semibold text-muted">SplitSnap</p>
         </div>
-        <button onClick={() => setScreen('claim')} className="text-muted mb-4 flex items-center gap-1">
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back</span>
-        </button>
         <h2 className="font-display text-3xl font-bold text-primary">Tip & Tax</h2>
         <p className="text-muted text-sm mt-1">How much would you like to tip?</p>
       </div>

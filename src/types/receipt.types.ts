@@ -18,6 +18,7 @@ export interface ParsedReceipt {
   total: number | null;
   currency: 'ILS' | 'USD' | 'EUR' | 'GBP' | 'other';
   confidence: 'high' | 'medium' | 'low';
+  isReceipt: boolean;
 }
 
 export interface RawReceiptItem {

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { SplitSession, Screen, Person, ItemClaim, TipConfig } from '../types/split.types';
 import type { ReceiptItem } from '../types/receipt.types';
 import { generateId } from '../utils/idGenerator';
@@ -15,11 +15,39 @@ const DEFAULT_SESSION: SplitSession = {
   currency: 'ILS',
 };
 
+// Screens that get their own browser history entry (back-navigable)
+const HISTORY_SCREENS = new Set<Screen>(['home', 'review', 'people', 'claim', 'tip', 'summary', 'roundrobin']);
+
+function hashToScreen(hash: string): Screen {
+  const s = hash.replace('#', '') as Screen;
+  return HISTORY_SCREENS.has(s) ? s : 'home';
+}
+
 export function useSplitSession() {
   const [session, setSession] = useState<SplitSession>(DEFAULT_SESSION);
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreenState] = useState<Screen>(() => hashToScreen(window.location.hash));
   const [activePersonIndex, setActivePersonIndex] = useState(0);
   const [scanError, setScanError] = useState<string | null>(null);
+
+  // Sync screen → URL hash
+  const setScreen = useCallback((s: Screen) => {
+    setScreenState(s);
+    if (s === 'home') {
+      window.history.replaceState({ screen: s }, '', '#');
+    } else if (HISTORY_SCREENS.has(s)) {
+      window.history.pushState({ screen: s }, '', `#${s}`);
+    }
+    // 'processing' — transient, no history entry
+  }, []);
+
+  // Browser back/forward button
+  useEffect(() => {
+    const onPopState = () => {
+      setScreenState(hashToScreen(window.location.hash));
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const setReceiptData = useCallback(
     (items: ReceiptItem[], meta: Partial<SplitSession>) => {
@@ -227,9 +255,10 @@ export function useSplitSession() {
 
   const reset = useCallback(() => {
     setSession(DEFAULT_SESSION);
-    setScreen('home');
+    setScreenState('home');
     setActivePersonIndex(0);
     setScanError(null);
+    window.history.replaceState({ screen: 'home' }, '', '#');
   }, []);
 
   const unclaimedCount = session.receiptItems.filter(

@@ -4,6 +4,7 @@ import { Plus, Trash2, Edit3, ChevronRight, CheckCircle2, Sparkles } from 'lucid
 import { useSession } from '../context/SplitSessionContext';
 import { ScreenContainer } from '../components/common/ScreenContainer';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
+import { BackButton } from '../components/common/BackButton';
 import { createManualItem } from '../services/receiptParser';
 
 // Simple category icon based on item name keywords
@@ -47,6 +48,7 @@ export function ReviewScreen() {
     <ScreenContainer>
       {/* Header */}
       <div className="px-5 pt-12 pb-4">
+        <BackButton screen="review" className="mb-3" />
         <p className="text-xs font-semibold text-muted uppercase tracking-widest mb-1">Merchant</p>
         <h2 className="font-display text-2xl font-bold text-primary leading-tight">
           {restaurantName ?? 'Your Receipt'}

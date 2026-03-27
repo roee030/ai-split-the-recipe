@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
+import { BackButton } from '../components/common/BackButton';
 import { useSession } from '../context/SplitSessionContext';
 import { ScreenContainer } from '../components/common/ScreenContainer';
 import { PersonSwitcher } from '../components/claim/PersonSwitcher';
@@ -80,9 +81,7 @@ export function ClaimScreen() {
       <div className="px-5 pt-12 pb-2">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => setScreen('people')} className="text-muted">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+            <BackButton screen="claim" />
             <h1 className="font-display text-lg font-bold text-primary">SplitSnap</h1>
           </div>
           <div className="flex items-center gap-2">

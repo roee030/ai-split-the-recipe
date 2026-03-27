@@ -5,10 +5,11 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
 const GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 const UPLOAD_URL = `https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart&key=${API_KEY}`;
 
-const PROMPT = `You are a receipt parser. Analyze this receipt image and extract ALL line items.
+const PROMPT = `You are a receipt parser. Analyze this image and determine if it is a restaurant/store receipt or bill.
 
 Return ONLY valid JSON (no markdown, no backticks, no explanation):
 {
+  "isReceipt": true,
   "restaurantName": "string or null",
   "items": [
     {
@@ -30,6 +31,7 @@ Return ONLY valid JSON (no markdown, no backticks, no explanation):
 }
 
 Rules:
+- isReceipt: Set to FALSE if the image is NOT a bill/receipt (e.g. a menu without prices charged, a random photo, blurry/unreadable paper, non-receipt document). Set to TRUE for any restaurant bill, store receipt, or itemized invoice.
 - LANGUAGE: Keep item names exactly as they appear on the receipt — Hebrew stays Hebrew, English stays English, mixed stays mixed. Do NOT translate anything.
 - GROUPING: If a line is a modifier, extra, topping, sauce, or note that belongs to the dish on the previous line (e.g. "extra sauce", "ללא גלוטן", "well done"), append it to the previous item's name in parentheses — do NOT create a separate item for it.
 - QUANTITIES: Merge duplicate items (same name, listed multiple times) into one item with combined quantity. Detect quantity from ×N, xN, כמות N, or repeated identical lines.
@@ -107,9 +109,20 @@ export async function scanReceipt(blob: Blob, mimeType: string): Promise<ParsedR
 
   const clean = text.replace(/```json|```/g, '').trim();
 
+  let parsed: ParsedReceipt;
   try {
-    return JSON.parse(clean) as ParsedReceipt;
+    parsed = JSON.parse(clean) as ParsedReceipt;
   } catch {
     throw new Error('Could not parse receipt data. Please try again.');
   }
+
+  if (parsed.isReceipt === false) {
+    throw new Error('NOT_A_RECEIPT');
+  }
+
+  if (!parsed.items || parsed.items.length === 0) {
+    throw new Error('NO_ITEMS_FOUND');
+  }
+
+  return parsed;
 }

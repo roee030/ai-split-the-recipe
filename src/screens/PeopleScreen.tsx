@@ -4,6 +4,7 @@ import { UserPlus, ChevronRight, X } from 'lucide-react';
 import { useSession } from '../context/SplitSessionContext';
 import { ScreenContainer } from '../components/common/ScreenContainer';
 import { Avatar } from '../components/common/Avatar';
+import { BackButton } from '../components/common/BackButton';
 import { getPersonInitials } from '../utils/colorPalette';
 
 type Mode = 'pick' | 'whole' | 'some';
@@ -46,7 +47,7 @@ export function PeopleScreen() {
         {/* Header */}
         <div className="px-5 pt-12 pb-6">
           <div className="flex items-center justify-between mb-6">
-            <p className="text-xs font-bold text-accent uppercase tracking-widest">Step 02 of 04</p>
+            <BackButton screen="people" />
             <p className="text-xs font-semibold text-muted">SplitSnap</p>
           </div>
           <h2 className="font-display text-4xl font-bold text-primary leading-tight mb-2">
@@ -107,10 +108,14 @@ export function PeopleScreen() {
       {/* Header */}
       <div className="px-5 pt-12 pb-6">
         <div className="flex items-center justify-between mb-6">
-          <p className="text-xs font-bold text-accent uppercase tracking-widest">Step 02 of 04</p>
-          <button onClick={() => setMode('pick')} className="text-xs font-semibold text-muted">
-            ← Change
+          <button
+            onClick={() => setMode('pick')}
+            className="flex items-center gap-0.5 text-sm font-medium text-muted hover:text-primary transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            <span>Change mode</span>
           </button>
+          <p className="text-xs font-semibold text-muted">SplitSnap</p>
         </div>
         <h2 className="font-display text-4xl font-bold text-primary leading-tight mb-2">
           Who's<br />Joining?

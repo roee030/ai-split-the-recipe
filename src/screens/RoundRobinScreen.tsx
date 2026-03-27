@@ -6,7 +6,7 @@ import { AnimatedNumber } from '../components/common/AnimatedNumber';
 import { getCurrencySymbol } from '../utils/currency';
 
 export function RoundRobinScreen() {
-  const { session, setScreen } = useSession();
+  const { session } = useSession();
   const { people, receiptItems, claims, tip, tax, serviceCharge, currency } = session;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -47,7 +47,7 @@ export function RoundRobinScreen() {
         <h2 className="font-display text-3xl font-bold text-white mb-2">All done!</h2>
         <p className="text-white/80 mb-8">Everyone's seen their total</p>
         <button
-          onClick={() => setScreen('summary')}
+          onClick={() => window.history.back()}
           className="px-8 py-4 bg-white text-success font-bold rounded-2xl"
         >
           Back to Summary
