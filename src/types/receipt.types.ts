@@ -6,6 +6,8 @@ export interface ReceiptItem {
   totalPrice: number;
   category: 'food' | 'drink' | 'dessert' | 'other';
   isEdited: boolean;
+  hasExtras?: boolean;
+  flagged?: boolean;
 }
 
 export interface ParsedReceipt {
@@ -28,4 +30,5 @@ export interface RawReceiptItem {
   unitPrice: number;
   totalPrice: number;
   category: 'food' | 'drink' | 'dessert' | 'other';
+  hasExtras?: boolean;
 }

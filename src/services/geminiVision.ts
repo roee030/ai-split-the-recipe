@@ -5,20 +5,63 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
 const GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 const UPLOAD_URL = `https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart&key=${API_KEY}`;
 
-const PROMPT = `You are a receipt parser. Analyze this image and determine if it is a restaurant/store receipt or bill.
+const PROMPT = `You are an expert receipt accountant. Your job is to parse a receipt image into structured JSON with 100% mathematical accuracy.
+
+## Step 1 — Classify every line on the receipt
+
+Before outputting anything, mentally classify each printed line:
+
+| Type | Description | Example |
+|------|-------------|---------|
+| MAIN | A chargeable dish/product with its own price | "Burger 45" |
+| EXTRA | An add-on/modifier WITH a price that belongs to the MAIN above it | "+ Extra cheese 8" / "תוספת 8" |
+| NOTE | A modifier with NO price (cooking style, allergy, free comment) | "ללא גלוטן" / "well done" |
+| TOTAL_LINE | A sub-total line for the item group above | "סה״כ 53" after burger+extra |
+| RECEIPT_TOTAL | The grand total line at the bottom | "סה״כ לתשלום 142" |
+| TAX | Tax line | "מע״מ 18%" |
+| SERVICE | Service charge line | "שירות 10%" |
+| DISCOUNT | Negative adjustment | "הנחה -15" |
+
+## Step 2 — Roll up EXTRA prices into the parent MAIN
+
+For each MAIN item:
+- Start with its own printed price as a base
+- Add the price of every EXTRA line that follows it (until the next MAIN)
+- If a TOTAL_LINE appears for the group, use that as the authoritative totalPrice
+- Append NOTE text to the item name in parentheses: "Burger (well done, ללא גלוטן)"
+- Do NOT create separate items for EXTRA or NOTE lines
+- Set hasExtras: true if any EXTRA lines were rolled in
+
+## Step 3 — Verify math BEFORE outputting
+
+For every item you output, verify this invariant:
+  unitPrice × quantity = totalPrice  (within ₪0.10 / $0.10 rounding)
+
+If it does not hold:
+- totalPrice is always the ground truth (it's the number actually charged)
+- Recalculate: unitPrice = totalPrice / quantity
+- Never invent or guess a price
+
+## Step 4 — Cross-check the receipt total
+
+Sum all your item totalPrices. If this differs from the printed subtotal by more than 5%, recheck your work — you likely missed an item or double-counted an EXTRA.
+
+## Output format
 
 Return ONLY valid JSON (no markdown, no backticks, no explanation):
+
 {
   "isReceipt": true,
   "restaurantName": "string or null",
   "items": [
     {
-      "id": "unique_string",
-      "name": "string — keep EXACTLY as printed on receipt, do not translate",
+      "id": "item_1",
+      "name": "string — EXACTLY as on receipt, NOTEs appended in parentheses, no translation",
       "quantity": number,
       "unitPrice": number,
       "totalPrice": number,
-      "category": "food" | "drink" | "dessert" | "other"
+      "category": "food" | "drink" | "dessert" | "other",
+      "hasExtras": false
     }
   ],
   "subtotal": number or null,
@@ -30,15 +73,16 @@ Return ONLY valid JSON (no markdown, no backticks, no explanation):
   "confidence": "high" | "medium" | "low"
 }
 
-Rules:
-- isReceipt: Set to FALSE if the image is NOT a bill/receipt (e.g. a menu without prices charged, a random photo, blurry/unreadable paper, non-receipt document). Set to TRUE for any restaurant bill, store receipt, or itemized invoice.
-- LANGUAGE: Keep item names exactly as they appear on the receipt — Hebrew stays Hebrew, English stays English, mixed stays mixed. Do NOT translate anything.
-- GROUPING: If a line is a modifier, extra, topping, sauce, or note that belongs to the dish on the previous line (e.g. "extra sauce", "ללא גלוטן", "well done"), append it to the previous item's name in parentheses — do NOT create a separate item for it.
-- QUANTITIES: Merge duplicate items (same name, listed multiple times) into one item with combined quantity. Detect quantity from ×N, xN, כמות N, or repeated identical lines.
-- PRICES: unitPrice = totalPrice / quantity. If quantity not shown, default to 1.
-- HEBREW TERMS: מע"מ = tax, שירות = service charge, סה"כ = total, כמות = quantity, מחיר = price, הנחה = discount (negative amount)
-- DISCOUNTS: Include as negative-amount items
-- Never return null for items — return [] if truly unreadable`;
+## Additional rules
+
+- isReceipt: false if this is NOT a bill/receipt (menu without totals, random photo, blurry paper). true otherwise.
+- LANGUAGE: Never translate. Hebrew stays Hebrew. English stays English. Mixed stays mixed.
+- QUANTITIES: Merge duplicate lines (same item repeated) into one item with summed quantity. Detect quantity from: ×N, xN, כמות N, or identical repeated lines.
+- DISCOUNTS: Output as items with negative totalPrice (e.g. totalPrice: -15)
+- HEBREW GLOSSARY: מע"מ=tax, שירות=service, סה"כ=total, כמות=qty, מחיר=price, הנחה=discount, תוספת=extra
+- hasExtras: true if EXTRA lines were rolled into this item, false otherwise
+- If a number is illegible: set confidence to "low", use 0 for that price, do not guess
+- Never return null for items — return [] only if completely unreadable`;
 
 // Step 1: Upload image to Gemini File API — returns a file URI
 async function uploadImageToFileAPI(blob: Blob, mimeType: string): Promise<string> {
