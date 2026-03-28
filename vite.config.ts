@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  base: "/ai-split-the-recipe/",
+  base: process.env.GITHUB_ACTIONS ? "/ai-split-the-recipe/" : "/",
   test: {
     environment: "jsdom",
     globals: true,
