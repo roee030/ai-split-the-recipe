@@ -11,6 +11,7 @@ const DEFAULT_SESSION: SplitSession = {
   tip: { mode: 'percent', value: 15, splitMode: 'proportional' },
   tax: 0,
   serviceCharge: 0,
+  subtotal: null,
   restaurantName: null,
   currency: 'ILS',
 };

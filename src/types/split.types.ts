@@ -29,6 +29,7 @@ export interface SplitSession {
   tip: TipConfig;
   tax: number;
   serviceCharge: number;
+  subtotal: number | null;
   restaurantName: string | null;
   currency: string;
 }

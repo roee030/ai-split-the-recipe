@@ -5,7 +5,7 @@ import { useSession } from '../context/SplitSessionContext';
 import { ScreenContainer } from '../components/common/ScreenContainer';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { BackButton } from '../components/common/BackButton';
-import { createManualItem } from '../services/receiptParser';
+import { createManualItem, checkSubtotalMismatch } from '../services/receiptParser';
 
 // Simple category icon based on item name keywords
 function getItemIcon(name: string): string {
@@ -32,7 +32,7 @@ function getItemIcon(name: string): string {
 
 export function ReviewScreen() {
   const { session, setScreen, updateItem, deleteItem, addItem, setServiceCharge } = useSession();
-  const { receiptItems, currency, restaurantName, tax, serviceCharge } = session;
+  const { receiptItems, currency, restaurantName, tax, serviceCharge, subtotal } = session;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [serviceAsTip, setServiceAsTip] = useState<boolean | null>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +43,7 @@ export function ReviewScreen() {
     setEditingId(item.id);
   }
   const grandTotal = receiptItems.reduce((s, i) => s + i.totalPrice, 0);
+  const subtotalWarning = checkSubtotalMismatch(receiptItems, subtotal ?? null);
 
   return (
     <ScreenContainer>
@@ -111,6 +112,18 @@ export function ReviewScreen() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Subtotal mismatch warning */}
+      {subtotalWarning && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-5 mb-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl flex gap-2 items-start"
+        >
+          <span className="text-lg flex-shrink-0">⚠️</span>
+          <p className="text-xs text-amber-700 font-medium leading-snug">{subtotalWarning}</p>
+        </motion.div>
+      )}
 
       {/* Items list */}
       <div className="flex-1 overflow-y-auto px-5 pb-32">
@@ -182,6 +195,11 @@ export function ReviewScreen() {
                         Done
                       </button>
                     </div>
+                    {editingId === item.id && item.flagged && (
+                      <p className="text-[10px] text-amber-600 mt-0.5 px-1">
+                        ⚠️ Unit price was recalculated from the charged total. Please verify.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 px-4 py-3.5">
@@ -193,6 +211,9 @@ export function ReviewScreen() {
                           <span className="text-xs text-muted font-medium">{item.quantity}×</span>
                         )}
                         <span className="text-sm font-medium text-primary truncate">{item.name}</span>
+                        {item.flagged && (
+                          <span title="Price math doesn't add up — please check manually" className="text-amber-500 text-xs">⚠️</span>
+                        )}
                       </div>
                     </div>
                     <CurrencyDisplay
