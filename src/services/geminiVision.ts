@@ -5,46 +5,42 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
 const GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 const UPLOAD_URL = `https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart&key=${API_KEY}`;
 
-const PROMPT = `You are an expert receipt accountant. Your job is to parse a receipt image into structured JSON with 100% mathematical accuracy.
+const PROMPT = `You are a professional receipt scanner. Convert this receipt image to JSON ONLY.
+Receipts come in different formats (supermarket, restaurant, gas station) — normalize all of them to the same unified structure.
 
-## Step 1 — Classify every line on the receipt
+## Step 1 — Identify receipt type
+Classify as one of: "grocery", "restaurant", "gas", "other"
 
-Before outputting anything, mentally classify each printed line:
+## Step 2 — Classify every line
 
-| Type | Description | Example |
-|------|-------------|---------|
-| MAIN | A chargeable dish/product with its own price | "Burger 45" |
-| EXTRA | An add-on/modifier WITH a price that belongs to the MAIN above it | "+ Extra cheese 8" / "תוספת 8" |
-| NOTE | A modifier with NO price (cooking style, allergy, free comment) | "ללא גלוטן" / "well done" |
-| TOTAL_LINE | A sub-total line for the item group above | "סה״כ 53" after burger+extra |
-| RECEIPT_TOTAL | The grand total line at the bottom | "סה״כ לתשלום 142" |
-| TAX | Tax line | "מע״מ 18%" |
-| SERVICE | Service charge line | "שירות 10%" |
-| DISCOUNT | Negative adjustment | "הנחה -15" |
+| Type         | Description                                                        | Visual cues                                      |
+|--------------|--------------------------------------------------------------------|--------------------------------------------------|
+| MAIN         | A chargeable item or dish with its own price                       | Regular price line                               |
+| SUB_ITEM     | An extra, add-on, modifier, or discount belonging to the MAIN above| Indented, starts with +/-, or prefixed with תוספת/הנחה |
+| NOTE         | A modifier with NO price (allergy, cooking style, free text)       | Text only, no number                             |
+| RECEIPT_TOTAL| Grand total at the bottom                                          | סה"כ לתשלום / Total                              |
+| TAX          | Tax line                                                           | מע"מ                                             |
+| SERVICE      | Service charge                                                     | שירות                                            |
+| NOISE        | Ads, phone numbers, opening hours, loyalty text, QR codes          | Ignore completely                                |
 
-## Step 2 — Roll up EXTRA prices into the parent MAIN
+## Step 3 — Build items with sub_items
 
-For each MAIN item:
-- Start with its own printed price as a base
-- Add the price of every EXTRA line that follows it (until the next MAIN)
-- If a TOTAL_LINE appears for the group, use that as the authoritative totalPrice
-- Append NOTE text to the item name in parentheses: "Burger (well done, ללא גלוטן)"
-- Do NOT create separate items for EXTRA or NOTE lines
-- Set hasExtras: true if any EXTRA lines were rolled in
+For each MAIN item, collect all following SUB_ITEM and NOTE lines into its sub_items array until the next MAIN.
+- SUB_ITEM with a price: include with that price (positive = extra charge, negative = discount)
+- NOTE with no price: include as sub_item with price 0 (preserves the info)
+- The item totalPrice is its own base price. The client sums sub_item prices to get the true charged amount.
+- NEVER merge sub_items into the parent name. Keep them separate.
 
-## Step 3 — Verify math BEFORE outputting
+## Step 4 — Math verification
 
-For every item you output, verify this invariant:
-  unitPrice × quantity = totalPrice  (within ₪0.10 / $0.10 rounding)
+For each item: unitPrice x quantity = totalPrice (within 0.10 rounding tolerance).
+totalPrice is always ground truth. If math breaks: unitPrice = totalPrice / quantity.
 
-If it does not hold:
-- totalPrice is always the ground truth (it's the number actually charged)
-- Recalculate: unitPrice = totalPrice / quantity
-- Never invent or guess a price
+## Step 5 — Validation
 
-## Step 4 — Cross-check the receipt total
-
-Sum all your item totalPrices. If this differs from the printed subtotal by more than 5%, recheck your work — you likely missed an item or double-counted an EXTRA.
+After building all items, verify:
+  sum of (item.totalPrice + all sub_item prices) approximately equals the printed subtotal
+If discrepancy is more than 5%, recheck — you likely missed a discount or extra charge.
 
 ## Output format
 
@@ -52,44 +48,48 @@ Return ONLY valid JSON (no markdown, no backticks, no explanation):
 
 {
   "isReceipt": true,
+  "receipt_type": "restaurant",
   "restaurantName": "string or null",
   "items": [
     {
       "id": "item_1",
-      "name": "string — EXACTLY as on receipt, NOTEs appended in parentheses, no translation",
-      "quantity": number,
-      "unitPrice": number,
-      "totalPrice": number,
-      "category": "food" | "drink" | "dessert" | "other",
-      "hasExtras": false
+      "name": "exact name as printed — no translation",
+      "quantity": 1,
+      "unitPrice": 45.00,
+      "totalPrice": 45.00,
+      "category": "food",
+      "sub_items": [
+        { "name": "תוספת גבינה", "price": 8.00 },
+        { "name": "ללא גלוטן", "price": 0 },
+        { "name": "הנחת מועדון", "price": -5.00 }
+      ]
     }
   ],
-  "subtotal": number or null,
-  "tax": number or null,
-  "taxPercent": number or null,
-  "serviceCharge": number or null,
-  "total": number or null,
-  "currency": "ILS" | "USD" | "EUR" | "GBP" | "other",
-  "confidence": "high" | "medium" | "low"
+  "subtotal": null,
+  "tax": null,
+  "taxPercent": null,
+  "serviceCharge": null,
+  "total": null,
+  "currency": "ILS",
+  "confidence": "high"
 }
 
-## Additional rules
+## Rules
 
-- isReceipt: false ONLY if this is clearly not a bill/receipt (e.g. a food menu with no totals, an unrelated photo). If it looks like a receipt even if blurry, partial, or low quality, set true and extract what you can.
+- isReceipt: false ONLY if clearly not a receipt (food menu with no totals, unrelated photo). If blurry or partial — set true and extract what you can.
 - LANGUAGE: Never translate. Hebrew stays Hebrew. English stays English. Mixed stays mixed.
-- QUANTITIES: Merge duplicate lines (same item repeated) into one item with summed quantity. Detect quantity from: ×N, xN, כמות N, or identical repeated lines.
-- DISCOUNTS: Output as items with negative totalPrice (e.g. totalPrice: -15)
-- HEBREW GLOSSARY: מע"מ=tax, שירות=service, סה"כ=total, כמות=qty, מחיר=price, הנחה=discount, תוספת=extra
-- hasExtras: true if EXTRA lines were rolled into this item, false otherwise
-- If a number is illegible: set confidence to "low", use 0 for that price, do not guess
-- Never return null for items — return [] only if completely unreadable`;
+- QUANTITIES: Detect from xN, or identical repeated lines. Merge duplicates. unitPrice = totalPrice / quantity.
+- NOISE: Ignore ads, phone numbers, opening hours, loyalty program text, QR codes entirely.
+- DISCOUNTS: Use sub_items with negative price. Never create a separate MAIN item for a discount that belongs to the MAIN above it.
+- HEBREW GLOSSARY: מע"מ=tax, שירות=service charge, סה"כ=total, כמות=quantity, מחיר=price, הנחה=discount, תוספת=extra/add-on
+- ILLEGIBLE: If a price is unreadable, use 0 and set confidence to "low". Never guess.
+- Never return null for items — use [] only if completely unreadable.`;
 
-// Step 1: Upload image to Gemini File API — returns a file URI
+// Upload image to Gemini File API — returns a file URI
 async function uploadImageToFileAPI(blob: Blob, mimeType: string): Promise<string> {
   const boundary = `boundary_${Date.now()}`;
   const metadata = JSON.stringify({ file: { display_name: 'receipt' } });
 
-  // Build multipart/related body manually (binary-safe)
   const enc = new TextEncoder();
   const metaPart = enc.encode(
     `--${boundary}\r\nContent-Type: application/json; charset=utf-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`
@@ -117,7 +117,7 @@ async function uploadImageToFileAPI(blob: Blob, mimeType: string): Promise<strin
   return data.file.uri as string;
 }
 
-// Step 2: Run vision analysis using the uploaded file URI
+// Run vision analysis using the uploaded file URI
 async function runGeminiVision(fileUri: string, mimeType: string): Promise<ParsedReceipt> {
   const response = await fetch(GENERATE_URL, {
     method: 'POST',

@@ -10,17 +10,9 @@ export interface ReceiptItem {
   flagged?: boolean;
 }
 
-export interface ParsedReceipt {
-  restaurantName: string | null;
-  items: RawReceiptItem[];
-  subtotal: number | null;
-  tax: number | null;
-  taxPercent: number | null;
-  serviceCharge: number | null;
-  total: number | null;
-  currency: 'ILS' | 'USD' | 'EUR' | 'GBP' | 'other';
-  confidence: 'high' | 'medium' | 'low';
-  isReceipt: boolean;
+export interface RawSubItem {
+  name: string;
+  price: number; // positive = extra charge, negative = discount/reduction
 }
 
 export interface RawReceiptItem {
@@ -30,5 +22,19 @@ export interface RawReceiptItem {
   unitPrice: number;
   totalPrice: number;
   category: 'food' | 'drink' | 'dessert' | 'other';
-  hasExtras?: boolean;
+  sub_items?: RawSubItem[];
+}
+
+export interface ParsedReceipt {
+  isReceipt: boolean;
+  receipt_type: 'grocery' | 'restaurant' | 'gas' | 'other';
+  restaurantName: string | null;
+  items: RawReceiptItem[];
+  subtotal: number | null;
+  tax: number | null;
+  taxPercent: number | null;
+  serviceCharge: number | null;
+  total: number | null;
+  currency: 'ILS' | 'USD' | 'EUR' | 'GBP' | 'other';
+  confidence: 'high' | 'medium' | 'low';
 }

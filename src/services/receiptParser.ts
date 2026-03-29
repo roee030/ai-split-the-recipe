@@ -1,33 +1,45 @@
 import type { ParsedReceipt, ReceiptItem } from '../types/receipt.types';
 import { generateId } from '../utils/idGenerator';
 
-const ROUNDING_TOLERANCE = 0.11; // ₪0.10 + floating point buffer
+const ROUNDING_TOLERANCE = 0.11; // 0.10 + floating point buffer
 
 export function parseReceiptToItems(parsed: ParsedReceipt): ReceiptItem[] {
   return parsed.items.map((item) => {
     const qty = item.quantity || 1;
-    const totalPrice = item.totalPrice ?? 0;
+    const basePrice = item.totalPrice ?? 0;
+
+    // Sum all sub_item prices (extras add, discounts subtract)
+    const subItems = item.sub_items ?? [];
+    const subTotal = subItems.reduce((sum, si) => sum + (si.price ?? 0), 0);
+    const effectiveTotalPrice = parseFloat((basePrice + subTotal).toFixed(2));
+
+    // Append sub_item names to the parent name for display
+    // Zero-price sub_items are notes (e.g. "ללא גלוטן"), non-zero are charges/discounts
+    const subNames = subItems.map((si) => si.name).filter(Boolean);
+    const displayName = subNames.length > 0
+      ? `${item.name} (${subNames.join(', ')})`
+      : item.name;
+
     const unitPrice = item.unitPrice ?? 0;
 
-    // Math invariant: unitPrice × qty should equal totalPrice
+    // Math invariant: unitPrice x qty should equal effectiveTotalPrice
     const expected = parseFloat((unitPrice * qty).toFixed(2));
-    const actual = parseFloat(totalPrice.toFixed(2));
-    const mathBroken = Math.abs(expected - actual) > ROUNDING_TOLERANCE && totalPrice !== 0;
+    const mathBroken = Math.abs(expected - effectiveTotalPrice) > ROUNDING_TOLERANCE && effectiveTotalPrice !== 0;
 
-    // totalPrice is ground truth — re-derive unitPrice if math is broken
+    // effectiveTotalPrice is ground truth — re-derive unitPrice if math is broken
     const correctedUnitPrice = mathBroken
-      ? parseFloat((totalPrice / qty).toFixed(4))
+      ? parseFloat((effectiveTotalPrice / qty).toFixed(4))
       : unitPrice;
 
     return {
       id: item.id || generateId(),
-      name: item.name,
+      name: displayName,
       quantity: qty,
       unitPrice: correctedUnitPrice,
-      totalPrice,
+      totalPrice: effectiveTotalPrice,
       category: item.category || 'other',
       isEdited: false,
-      hasExtras: item.hasExtras ?? false,
+      hasExtras: subItems.some((si) => (si.price ?? 0) !== 0),
       flagged: mathBroken,
     };
   });
