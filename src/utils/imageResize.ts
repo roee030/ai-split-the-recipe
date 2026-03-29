@@ -4,8 +4,8 @@ export async function prepareImage(
   const canvas = document.createElement('canvas');
   const img = await createImageBitmap(file);
 
-  // 1000px is plenty for OCR — keeps request payload small
-  const MAX = 1000;
+  // 1800px gives enough detail for small receipt text and Hebrew characters
+  const MAX = 1800;
   const scale = Math.min(1, MAX / Math.max(img.width, img.height));
   canvas.width = Math.round(img.width * scale);
   canvas.height = Math.round(img.height * scale);
@@ -14,7 +14,7 @@ export async function prepareImage(
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
   const blob = await new Promise<Blob>((res) =>
-    canvas.toBlob(res as BlobCallback, 'image/jpeg', 0.80)
+    canvas.toBlob(res as BlobCallback, 'image/jpeg', 0.90)
   );
 
   return { blob: blob!, mimeType: 'image/jpeg' };

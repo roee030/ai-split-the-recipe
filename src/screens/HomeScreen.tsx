@@ -45,6 +45,7 @@ export function HomeScreen() {
         serviceCharge: parsed.serviceCharge ?? 0,
         currency: parsed.currency ?? 'ILS',
         subtotal: parsed.subtotal ?? null,
+        scanConfidence: parsed.confidence ?? null,
       });
       setScreen('review');
     } catch (err) {

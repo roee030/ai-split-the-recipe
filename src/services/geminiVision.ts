@@ -75,7 +75,7 @@ Return ONLY valid JSON (no markdown, no backticks, no explanation):
 
 ## Additional rules
 
-- isReceipt: false if this is NOT a bill/receipt (menu without totals, random photo, blurry paper). true otherwise.
+- isReceipt: false ONLY if this is clearly not a bill/receipt (e.g. a food menu with no totals, an unrelated photo). If it looks like a receipt even if blurry, partial, or low quality, set true and extract what you can.
 - LANGUAGE: Never translate. Hebrew stays Hebrew. English stays English. Mixed stays mixed.
 - QUANTITIES: Merge duplicate lines (same item repeated) into one item with summed quantity. Detect quantity from: ×N, xN, כמות N, or identical repeated lines.
 - DISCOUNTS: Output as items with negative totalPrice (e.g. totalPrice: -15)
@@ -118,9 +118,7 @@ async function uploadImageToFileAPI(blob: Blob, mimeType: string): Promise<strin
 }
 
 // Step 2: Run vision analysis using the uploaded file URI
-export async function scanReceipt(blob: Blob, mimeType: string): Promise<ParsedReceipt> {
-  const fileUri = await uploadImageToFileAPI(blob, mimeType);
-
+async function runGeminiVision(fileUri: string, mimeType: string): Promise<ParsedReceipt> {
   const response = await fetch(GENERATE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -133,7 +131,7 @@ export async function scanReceipt(blob: Blob, mimeType: string): Promise<ParsedR
           ],
         },
       ],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 2048, response_mime_type: 'application/json' },
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8192, response_mime_type: 'application/json' },
     }),
   });
 
@@ -169,4 +167,21 @@ export async function scanReceipt(blob: Blob, mimeType: string): Promise<ParsedR
   }
 
   return parsed;
+}
+
+export async function scanReceipt(blob: Blob, mimeType: string): Promise<ParsedReceipt> {
+  const fileUri = await uploadImageToFileAPI(blob, mimeType);
+
+  try {
+    return await runGeminiVision(fileUri, mimeType);
+  } catch (err) {
+    // Retry once on transient failures (parse errors, empty responses)
+    // but not on definitive rejections or rate limits
+    const msg = err instanceof Error ? err.message : '';
+    const isTransient = msg.includes('parse') || msg.includes('Empty response') || msg.includes('Gemini API error');
+    if (isTransient) {
+      return await runGeminiVision(fileUri, mimeType);
+    }
+    throw err;
+  }
 }

@@ -32,7 +32,7 @@ function getItemIcon(name: string): string {
 
 export function ReviewScreen() {
   const { session, setScreen, updateItem, deleteItem, addItem, setServiceCharge } = useSession();
-  const { receiptItems, currency, restaurantName, tax, serviceCharge, subtotal } = session;
+  const { receiptItems, currency, restaurantName, tax, serviceCharge, subtotal, scanConfidence } = session;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [serviceAsTip, setServiceAsTip] = useState<boolean | null>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
@@ -112,6 +112,20 @@ export function ReviewScreen() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Low confidence warning */}
+      {scanConfidence === 'low' && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mx-5 mb-3 p-3 bg-red-50 border border-red-200 rounded-2xl flex gap-2 items-start"
+        >
+          <span className="text-lg flex-shrink-0">🔍</span>
+          <p className="text-xs text-red-700 font-medium leading-snug">
+            Low scan confidence — the receipt may be blurry or partially cut off. Please check every item name and price carefully before continuing.
+          </p>
+        </motion.div>
+      )}
 
       {/* Subtotal mismatch warning */}
       {subtotalWarning && (

@@ -14,6 +14,7 @@ const DEFAULT_SESSION: SplitSession = {
   subtotal: null,
   restaurantName: null,
   currency: 'ILS',
+  scanConfidence: null,
 };
 
 // Screens that get their own browser history entry (back-navigable)
