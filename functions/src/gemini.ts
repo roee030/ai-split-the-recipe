@@ -44,6 +44,10 @@ export async function callGemini(
       let data = "";
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
+        if ((res.statusCode ?? 200) >= 400) {
+          reject(new Error(`GEMINI_HTTP_${res.statusCode}: ${data.slice(0, 200)}`));
+          return;
+        }
         try {
           const json = JSON.parse(data) as {
             candidates?: Array<{content?: {parts?: Array<{text?: string}>}}>;

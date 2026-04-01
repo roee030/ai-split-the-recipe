@@ -1,7 +1,7 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {setGlobalOptions} from "firebase-functions/v2";
 import * as admin from "firebase-admin";
-import {callGemini} from "./gemini.js";
+import {callGemini} from "./gemini";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -40,6 +40,11 @@ export const scanReceipt = onCall(
       );
     }
 
+    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+    if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+      throw new HttpsError('invalid-argument', `Unsupported image type: ${mimeType}`);
+    }
+
     // 4. Call Gemini
     const apiKey = process.env.GEMINI_API_KEY ?? "";
     if (!apiKey) {
@@ -54,6 +59,7 @@ export const scanReceipt = onCall(
         apiKey
       )) as Record<string, unknown>;
     } catch (e) {
+      console.error('Gemini call failed:', e);
       throw new HttpsError("internal", "Gemini call failed");
     }
 
@@ -61,21 +67,22 @@ export const scanReceipt = onCall(
       throw new HttpsError("invalid-argument", parsed.error as string);
     }
 
-    // 5. Atomically increment scansUsed + store user doc
-    await userRef.set(
-      {
-        scansUsed: admin.firestore.FieldValue.increment(1),
-        email: request.auth.token.email ?? null,
-        displayName: request.auth.token.name ?? null,
-      },
-      {merge: true}
-    );
-
-    // 6. Save scan to history subcollection
+    // 5 & 6. Atomically increment scansUsed and save scan record
     const items =
       (parsed.items as Array<Record<string, unknown>>) ?? [];
-    await userRef.collection("scans").add({
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    const batch = db.batch();
+
+    // Update user doc
+    batch.set(userRef, {
+      scansUsed: admin.firestore.FieldValue.increment(1),
+      email: request.auth.token.email ?? null,
+      displayName: request.auth.token.name ?? null,
+    }, {merge: true});
+
+    // Save scan to history
+    const scanRef = userRef.collection("scans").doc();
+    batch.set(scanRef, {
+      createdAt: admin.firestore.Timestamp.now(),
       restaurantName: parsed.restaurant_name ?? null,
       currency: parsed.currency ?? "ILS",
       total: items.reduce(
@@ -87,6 +94,8 @@ export const scanReceipt = onCall(
       items: items,
       confidence: parsed.confidence ?? "medium",
     });
+
+    await batch.commit();
 
     // 7. Return parsed receipt to client
     return parsed;
