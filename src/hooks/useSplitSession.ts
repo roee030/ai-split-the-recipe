@@ -4,6 +4,15 @@ import type { ReceiptItem } from '../types/receipt.types';
 import { generateId } from '../utils/idGenerator';
 import { getPersonColor, getPersonInitials } from '../utils/colorPalette';
 
+export function getLocalScansUsed(): number {
+  return parseInt(localStorage.getItem('splitsnap_local_scans') ?? '0', 10);
+}
+
+export function incrementLocalScansUsed(): void {
+  const next = getLocalScansUsed() + 1;
+  localStorage.setItem('splitsnap_local_scans', String(next));
+}
+
 const DEFAULT_SESSION: SplitSession = {
   receiptItems: [],
   people: [],

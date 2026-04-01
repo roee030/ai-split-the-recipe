@@ -2,9 +2,12 @@ import { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Receipt, Zap, Camera, X, RotateCcw, ChevronRight } from 'lucide-react';
 import { useSession } from '../context/SplitSessionContext';
+import { useAuth } from '../context/AuthContext';
 import { prepareImage } from '../utils/imageResize';
 import { scanReceipt } from '../services/geminiVision';
 import { parseReceiptToItems } from '../services/receiptParser';
+import { SignInModal } from '../components/auth/SignInModal';
+import { getLocalScansUsed, incrementLocalScansUsed } from '../hooks/useSplitSession';
 
 const CAMERA_TIPS = [
   { icon: '💡', text: 'Good lighting — avoid shadows & glare' },
@@ -17,6 +20,7 @@ type Stage = 'home' | 'guide' | 'preview';
 
 export function HomeScreen() {
   const { setScreen, setReceiptData, scanError, setScanError } = useSession();
+  const { user } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const scanningRef = useRef(false);
@@ -24,15 +28,18 @@ export function HomeScreen() {
   const [stage, setStage] = useState<Stage>('home');
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   // Revoke object URL on unmount
   useEffect(() => {
     return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
   }, [previewUrl]);
 
-  async function handleFile(file: File) {
+  async function doScan(file: File) {
     if (scanningRef.current) return;
     scanningRef.current = true;
+    incrementLocalScansUsed();
     setScanError(null);
     setScreen('processing');
     try {
@@ -71,6 +78,22 @@ export function HomeScreen() {
     } finally {
       scanningRef.current = false;
     }
+  }
+
+  async function handleFile(file: File) {
+    // Soft gate: show sign-in on first scan if not signed in
+    if (!user && getLocalScansUsed() === 0) {
+      setPendingFile(file);
+      setShowSignIn(true);
+      return;
+    }
+    // Strong nudge: last free scan
+    if (!user && getLocalScansUsed() === 4) {
+      setPendingFile(file);
+      setShowSignIn(true);
+      return;
+    }
+    await doScan(file);
   }
 
   function showPreview(file: File) {
@@ -321,6 +344,22 @@ export function HomeScreen() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Sign-in Modal */}
+      <SignInModal
+        open={showSignIn}
+        reason={getLocalScansUsed() === 0 ? 'first_scan' : 'limit_approaching'}
+        onDismiss={() => {
+          setShowSignIn(false);
+          if (pendingFile) { doScan(pendingFile); }
+          setPendingFile(null);
+        }}
+        onSuccess={() => {
+          setShowSignIn(false);
+          if (pendingFile) { doScan(pendingFile); }
+          setPendingFile(null);
+        }}
+      />
 
       {/* Photo Preview Overlay */}
       <AnimatePresence>
