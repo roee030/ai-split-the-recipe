@@ -11,6 +11,7 @@ import { SummaryScreen } from './screens/SummaryScreen';
 import { RoundRobinScreen } from './screens/RoundRobinScreen';
 import { PrivacyScreen } from './screens/PrivacyScreen';
 import { TermsScreen } from './screens/TermsScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 
 export function AppRouter() {
   useDirection(); // applies dir + lang to <html> element
@@ -28,6 +29,7 @@ export function AppRouter() {
       {screen === 'roundrobin' && <RoundRobinScreen key="roundrobin" />}
       {screen === 'privacy' && <PrivacyScreen key="privacy" />}
       {screen === 'terms' && <TermsScreen key="terms" />}
+      {screen === 'settings' && <SettingsScreen key="settings" />}
     </AnimatePresence>
   );
 }

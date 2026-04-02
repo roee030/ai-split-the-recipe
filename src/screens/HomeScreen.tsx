@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Receipt, Zap, Camera, X, RotateCcw, ChevronRight } from 'lucide-react';
+import { Upload, Receipt, Zap, Camera, X, RotateCcw, ChevronRight, Settings } from 'lucide-react';
 import { useSession } from '../context/SplitSessionContext';
 import { useAuth } from '../context/AuthContext';
 import { prepareImage } from '../utils/imageResize';
@@ -172,10 +172,19 @@ export function HomeScreen() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="flex items-center gap-1 px-3 py-1 bg-accent/10 rounded-full"
+          className="flex items-center gap-2"
         >
-          <Zap className="w-3 h-3 text-accent" />
-          <span className="text-xs font-semibold text-accent">AI Powered</span>
+          <div className="flex items-center gap-1 px-3 py-1 bg-accent/10 rounded-full">
+            <Zap className="w-3 h-3 text-accent" />
+            <span className="text-xs font-semibold text-accent">AI Powered</span>
+          </div>
+          <button
+            onClick={() => setScreen('settings')}
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Settings"
+          >
+            <Settings className="w-5 h-5 text-muted" />
+          </button>
         </motion.div>
       </div>
 
