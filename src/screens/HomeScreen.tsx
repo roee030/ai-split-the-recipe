@@ -34,8 +34,15 @@ export function HomeScreen() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [scanCooldown, setScanCooldown] = useState(0);
 
   const { history, loading: historyLoading } = useScanHistory();
+
+  useEffect(() => {
+    if (scanCooldown <= 0) return;
+    const timer = setTimeout(() => setScanCooldown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [scanCooldown]);
 
   // Revoke object URL on unmount
   useEffect(() => {
@@ -45,6 +52,7 @@ export function HomeScreen() {
   async function doScan(file: File) {
     if (scanningRef.current) return;
     scanningRef.current = true;
+    setScanCooldown(10);
     incrementLocalScansUsed();
     setScanError(null);
     setScreen('processing');
@@ -240,15 +248,18 @@ export function HomeScreen() {
               </div>
               <motion.button
                 data-coach-step="1"
-                onClick={() => setStage('guide')}
-                aria-label="Scan receipt"
-                className="w-20 h-20 rounded-full bg-accent flex flex-col items-center justify-center gap-1 shadow-lg shadow-accent/40"
+                onClick={() => scanCooldown <= 0 && setStage('guide')}
+                disabled={scanCooldown > 0}
+                aria-label={scanCooldown > 0 ? `Wait ${scanCooldown}s` : 'Scan receipt'}
+                className="w-20 h-20 rounded-full bg-accent flex flex-col items-center justify-center gap-1 shadow-lg shadow-accent/40 disabled:opacity-60"
                 whileTap={{ scale: 0.92 }}
-                animate={{ scale: [1, 1.02, 1] }}
+                animate={scanCooldown <= 0 ? { scale: [1, 1.02, 1] } : {}}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               >
                 <Camera className="w-7 h-7 text-white" />
-                <span className="text-white text-[10px] font-bold tracking-wide">SCAN</span>
+                <span className="text-white text-[10px] font-bold tracking-wide">
+                  {scanCooldown > 0 ? `${scanCooldown}s` : 'SCAN'}
+                </span>
               </motion.button>
             </div>
           </div>
