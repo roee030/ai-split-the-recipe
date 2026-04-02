@@ -1,0 +1,124 @@
+{
+  "app": { "name": "SplitSnap" },
+  "home": {
+    "title": "Divida a conta,\nnão a amizade",
+    "scan": "Escanear recibo",
+    "recentActivity": "Atividade recente",
+    "noHistory": "Nenhuma divisão recente ainda",
+    "noHistoryHint": "Seu histórico de escaneamentos aparecerá aqui"
+  },
+  "errors": {
+    "BLURRY": "A foto ficou um pouco borrada. Tente segurar o celular mais firme e fotografe novamente.",
+    "CROPPED": "Parte do recibo parece estar cortada. Certifique-se de que todas as bordas estejam enquadradas.",
+    "LOW_LIGHT": "Está muito escuro. Tente acender uma luz ou usar o flash.",
+    "OCCLUDED": "Algo está cobrindo o texto — talvez um dedo? Tente novamente com o recibo totalmente exposto.",
+    "NOT_A_RECEIPT": "Não conseguimos identificar um recibo aqui. Certifique-se de fotografar uma nota fiscal clara.",
+    "NO_ITEMS_FOUND": "Não encontramos nenhum item. Tente com uma foto mais bem iluminada.",
+    "TOO_MANY_REQUESTS": "Muitas solicitações. Aguarde um momento e tente novamente.",
+    "RATE_LIMITED": "Aguarde um momento antes de escanear novamente.",
+    "GENERIC": "Algo deu errado. Por favor, tente novamente."
+  },
+  "scan": {
+    "processing": "Lendo seu recibo…",
+    "tips": {
+      "lighting": "Boa iluminação — evite sombras e reflexos",
+      "frame": "Recibo completo no enquadramento, de cima a baixo",
+      "flat": "Mantenha-o plano e estável",
+      "readable": "Preços e nomes dos itens devem ser legíveis"
+    }
+  },
+  "review": {
+    "title": "Revisar itens",
+    "lowConfidence": "Alguns itens podem precisar de verificação — revise com atenção",
+    "subtotalMismatch": "O total dos itens não corresponde ao subtotal do recibo"
+  },
+  "people": {
+    "title": "Quem divide?",
+    "addPerson": "Adicionar pessoa",
+    "justMe": "Só eu",
+    "allOfUs": "Todos nós",
+    "someOfUs": "Alguns de nós"
+  },
+  "claim": {
+    "title": "Reivindique seus itens",
+    "unclaimed": "{{count}} não reivindicado(s)",
+    "seeTotal": "Ver meu total",
+    "done": "Pronto →"
+  },
+  "summary": {
+    "title": "Resumo",
+    "total": "Total",
+    "share": "Compartilhar",
+    "newSplit": "Nova divisão"
+  },
+  "auth": {
+    "signIn": "Entre para continuar",
+    "saveHistory": "Salve seu escaneamento e acompanhe o histórico",
+    "lastFreeScan": "Este é seu último escaneamento gratuito — entre para continuar",
+    "google": "Continuar com Google",
+    "email": "Continuar com e-mail",
+    "skip": "Pular por enquanto",
+    "back": "Voltar",
+    "emailPlaceholder": "E-mail",
+    "passwordPlaceholder": "Senha",
+    "continue": "Continuar",
+    "signingIn": "Entrando…",
+    "emailError": "Credenciais inválidas. Verifique seu e-mail e senha.",
+    "googleError": "Falha no login com Google. Tente novamente.",
+    "enterEmailPassword": "Digite e-mail e senha",
+    "agreeTerms": "Ao continuar você concorda com nossos",
+    "terms": "Termos",
+    "and": "e",
+    "privacy": "Política de Privacidade"
+  },
+  "paywall": {
+    "title": "Você usou seus 5 escaneamentos gratuitos",
+    "subtitle": "Desbloqueie escaneamentos ilimitados + histórico completo por menos de um café por mês.",
+    "feature1": "Escaneamentos de recibos ilimitados",
+    "feature2": "Histórico completo de escaneamentos",
+    "feature3": "Reabrir qualquer divisão anterior",
+    "unlock": "Desbloquear — R$0,99/mês",
+    "setting_up": "Configurando pagamento…",
+    "notNow": "Agora não"
+  },
+  "settings": {
+    "title": "Configurações",
+    "language": "Idioma",
+    "theme": "Tema",
+    "themeLight": "Claro",
+    "themeDark": "Escuro",
+    "themeSystem": "Sistema",
+    "legal": "Legal",
+    "privacyPolicy": "Política de Privacidade",
+    "termsOfService": "Termos de Serviço",
+    "deleteAccount": "Excluir minha conta e dados",
+    "deleteConfirm": "Tem certeza? Isso exclui permanentemente todos os seus dados.",
+    "deleteCancel": "Cancelar",
+    "deleteConfirmButton": "Excluir tudo",
+    "doNotSell": "Não vendemos suas informações pessoais",
+    "signOut": "Sair"
+  },
+  "legal": {
+    "privacyTitle": "Política de Privacidade",
+    "termsTitle": "Termos de Serviço",
+    "lastUpdated": "Última atualização: abril de 2026"
+  },
+  "consent": {
+    "message": "Usamos o Firebase para armazenar seu histórico de escaneamentos e conta. Isso é necessário para o funcionamento do aplicativo.",
+    "accept": "Aceitar e continuar",
+    "learnMore": "Saiba mais"
+  },
+  "onboarding": {
+    "step1Title": "Escaneie seu recibo",
+    "step1Message": "Toque aqui para fotografar seu recibo — a IA lê em segundos",
+    "step2Title": "Revisar itens",
+    "step2Message": "Verifique os itens — toque em qualquer linha para corrigir um nome ou preço",
+    "step3Title": "Reivindique o que comeu",
+    "step3Message": "Cada pessoa toca no que comeu",
+    "step4Title": "Compartilhe o total",
+    "step4Message": "Todos veem exatamente o que devem",
+    "next": "Próximo →",
+    "done": "Pronto ✓",
+    "skip": "Pular tour"
+  }
+}

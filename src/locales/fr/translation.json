@@ -1,0 +1,124 @@
+{
+  "app": { "name": "SplitSnap" },
+  "home": {
+    "title": "Divisez l'addition,\npas l'amitié",
+    "scan": "Scanner le reçu",
+    "recentActivity": "Activité récente",
+    "noHistory": "Pas encore de divisions récentes",
+    "noHistoryHint": "Votre historique de scans apparaîtra ici"
+  },
+  "errors": {
+    "BLURRY": "La photo est un peu floue. Essayez de tenir votre téléphone plus stable et reprenez la photo.",
+    "CROPPED": "Une partie du reçu semble coupée. Assurez-vous que tous les bords sont dans le cadre.",
+    "LOW_LIGHT": "Il fait trop sombre. Essayez d'allumer une lumière ou d'utiliser le flash.",
+    "OCCLUDED": "Quelque chose couvre le texte — peut-être un doigt ? Réessayez avec le reçu entièrement visible.",
+    "NOT_A_RECEIPT": "Nous n'avons pas pu identifier un reçu ici. Assurez-vous de photographier une facture claire.",
+    "NO_ITEMS_FOUND": "Nous n'avons trouvé aucun article. Essayez avec une photo mieux éclairée.",
+    "TOO_MANY_REQUESTS": "Trop de requêtes. Veuillez patienter un moment et réessayer.",
+    "RATE_LIMITED": "Veuillez patienter un moment avant de scanner à nouveau.",
+    "GENERIC": "Une erreur s'est produite. Veuillez réessayer."
+  },
+  "scan": {
+    "processing": "Lecture de votre reçu…",
+    "tips": {
+      "lighting": "Bonne luminosité — évitez les ombres et les reflets",
+      "frame": "Reçu complet dans le cadre, de haut en bas",
+      "flat": "Gardez-le plat et stable",
+      "readable": "Les prix et noms d'articles doivent être lisibles"
+    }
+  },
+  "review": {
+    "title": "Réviser les articles",
+    "lowConfidence": "Certains articles peuvent nécessiter une vérification — veuillez réviser attentivement",
+    "subtotalMismatch": "Le total des articles ne correspond pas au sous-total du reçu"
+  },
+  "people": {
+    "title": "Qui partage ?",
+    "addPerson": "Ajouter une personne",
+    "justMe": "Juste moi",
+    "allOfUs": "Nous tous",
+    "someOfUs": "Certains d'entre nous"
+  },
+  "claim": {
+    "title": "Réclamez vos articles",
+    "unclaimed": "{{count}} non réclamé(s)",
+    "seeTotal": "Voir mon total",
+    "done": "Terminé →"
+  },
+  "summary": {
+    "title": "Résumé",
+    "total": "Total",
+    "share": "Partager",
+    "newSplit": "Nouveau partage"
+  },
+  "auth": {
+    "signIn": "Connectez-vous pour continuer",
+    "saveHistory": "Enregistrez votre scan et suivez l'historique",
+    "lastFreeScan": "C'est votre dernier scan gratuit — connectez-vous pour continuer",
+    "google": "Continuer avec Google",
+    "email": "Continuer avec l'e-mail",
+    "skip": "Ignorer pour l'instant",
+    "back": "Retour",
+    "emailPlaceholder": "E-mail",
+    "passwordPlaceholder": "Mot de passe",
+    "continue": "Continuer",
+    "signingIn": "Connexion en cours…",
+    "emailError": "Identifiants invalides. Vérifiez votre e-mail et mot de passe.",
+    "googleError": "Échec de la connexion Google. Veuillez réessayer.",
+    "enterEmailPassword": "Entrez l'e-mail et le mot de passe",
+    "agreeTerms": "En continuant, vous acceptez nos",
+    "terms": "Conditions",
+    "and": "et",
+    "privacy": "Politique de confidentialité"
+  },
+  "paywall": {
+    "title": "Vous avez utilisé vos 5 scans gratuits",
+    "subtitle": "Débloquez des scans illimités + l'historique complet pour moins d'un café par mois.",
+    "feature1": "Scans de reçus illimités",
+    "feature2": "Historique complet des scans",
+    "feature3": "Rouvrir n'importe quel partage passé",
+    "unlock": "Débloquer — 0,99 $/mois",
+    "setting_up": "Configuration du paiement…",
+    "notNow": "Pas maintenant"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "language": "Langue",
+    "theme": "Thème",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "themeSystem": "Système",
+    "legal": "Légal",
+    "privacyPolicy": "Politique de confidentialité",
+    "termsOfService": "Conditions d'utilisation",
+    "deleteAccount": "Supprimer mon compte et mes données",
+    "deleteConfirm": "Êtes-vous sûr ? Cela supprime définitivement toutes vos données.",
+    "deleteCancel": "Annuler",
+    "deleteConfirmButton": "Tout supprimer",
+    "doNotSell": "Nous ne vendons pas vos informations personnelles",
+    "signOut": "Se déconnecter"
+  },
+  "legal": {
+    "privacyTitle": "Politique de confidentialité",
+    "termsTitle": "Conditions d'utilisation",
+    "lastUpdated": "Dernière mise à jour : avril 2026"
+  },
+  "consent": {
+    "message": "Nous utilisons Firebase pour stocker votre historique de scans et votre compte. Ceci est requis pour le fonctionnement de l'application.",
+    "accept": "Accepter et continuer",
+    "learnMore": "En savoir plus"
+  },
+  "onboarding": {
+    "step1Title": "Scannez votre reçu",
+    "step1Message": "Appuyez ici pour photographier votre reçu — l'IA le lit en quelques secondes",
+    "step2Title": "Réviser les articles",
+    "step2Message": "Vérifiez les articles — appuyez sur n'importe quelle ligne pour corriger un nom ou un prix",
+    "step3Title": "Réclamez ce que vous avez mangé",
+    "step3Message": "Chaque personne appuie sur ce qu'elle a mangé",
+    "step4Title": "Partagez le total",
+    "step4Message": "Tout le monde voit exactement ce qu'il doit",
+    "next": "Suivant →",
+    "done": "Terminé ✓",
+    "skip": "Passer la visite"
+  }
+}

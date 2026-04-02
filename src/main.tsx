@@ -1,3 +1,4 @@
+import './i18n';
 import ReactDOM from 'react-dom/client';
 import { AuthProvider } from './context/AuthContext';
 import { CoachMarkProvider } from './context/CoachMarkContext';

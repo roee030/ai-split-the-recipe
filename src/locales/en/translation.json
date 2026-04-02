@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "SplitSnap"
+  },
+  "home": {
+    "title": "Split the bill,\nnot the friendship",
+    "scan": "Scan Receipt",
+    "recentActivity": "Recent Activity",
+    "noHistory": "No recent splits yet",
+    "noHistoryHint": "Your scan history will appear here"
+  },
+  "errors": {
+    "BLURRY": "The photo came out a bit blurry. Try holding your phone steadier and shoot again.",
+    "CROPPED": "Part of the receipt looks cut off. Make sure all edges are in frame.",
+    "LOW_LIGHT": "It's too dark. Try turning on a light or using flash.",
+    "OCCLUDED": "Something is covering the text — maybe a finger? Try again with the receipt fully exposed.",
+    "NOT_A_RECEIPT": "We couldn't identify a receipt here. Make sure you're photographing a clear bill.",
+    "NO_ITEMS_FOUND": "We couldn't find any items. Try a better-lit photo.",
+    "TOO_MANY_REQUESTS": "Too many requests. Please wait a moment and try again.",
+    "RATE_LIMITED": "Please wait a moment before scanning again.",
+    "GENERIC": "Something went wrong. Please try again."
+  },
+  "scan": {
+    "processing": "Reading your receipt…",
+    "tips": {
+      "lighting": "Good lighting — avoid shadows & glare",
+      "frame": "Full receipt in frame, top to bottom",
+      "flat": "Keep it flat and steady",
+      "readable": "Prices and item names must be readable"
+    }
+  },
+  "review": {
+    "title": "Review Items",
+    "lowConfidence": "Some items may need checking — please review carefully",
+    "subtotalMismatch": "Items total doesn't match receipt subtotal"
+  },
+  "people": {
+    "title": "Who's splitting?",
+    "addPerson": "Add person",
+    "justMe": "Just me",
+    "allOfUs": "All of us",
+    "someOfUs": "Some of us"
+  },
+  "claim": {
+    "title": "Claim your items",
+    "unclaimed": "{{count}} unclaimed",
+    "seeTotal": "See My Total",
+    "done": "Done →"
+  },
+  "summary": {
+    "title": "Summary",
+    "total": "Total",
+    "share": "Share",
+    "newSplit": "New Split"
+  },
+  "auth": {
+    "signIn": "Sign in to continue",
+    "saveHistory": "Save your scan & track history",
+    "lastFreeScan": "This is your last free scan — sign in to keep going",
+    "google": "Continue with Google",
+    "email": "Continue with Email",
+    "skip": "Skip for now",
+    "back": "Back",
+    "emailPlaceholder": "Email",
+    "passwordPlaceholder": "Password",
+    "continue": "Continue",
+    "signingIn": "Signing in…",
+    "emailError": "Invalid credentials. Check your email and password.",
+    "googleError": "Google sign-in failed. Please try again.",
+    "enterEmailPassword": "Enter email and password",
+    "agreeTerms": "By continuing you agree to our",
+    "terms": "Terms",
+    "and": "and",
+    "privacy": "Privacy Policy"
+  },
+  "paywall": {
+    "title": "You've used your 5 free scans",
+    "subtitle": "Unlock unlimited scanning + full history for less than a coffee a month.",
+    "feature1": "Unlimited receipt scans",
+    "feature2": "Full scan history",
+    "feature3": "Re-open any past split",
+    "unlock": "Unlock — $0.99/month",
+    "setting_up": "Setting up checkout…",
+    "notNow": "Not now"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "legal": "Legal",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "deleteAccount": "Delete my account & data",
+    "deleteConfirm": "Are you sure? This permanently deletes all your data.",
+    "deleteCancel": "Cancel",
+    "deleteConfirmButton": "Delete Everything",
+    "doNotSell": "We do not sell your personal information",
+    "signOut": "Sign Out"
+  },
+  "legal": {
+    "privacyTitle": "Privacy Policy",
+    "termsTitle": "Terms of Service",
+    "lastUpdated": "Last updated: April 2026"
+  },
+  "consent": {
+    "message": "We use Firebase to store your scan history and account. This is required for the app to work.",
+    "accept": "Accept & Continue",
+    "learnMore": "Learn more"
+  },
+  "onboarding": {
+    "step1Title": "Scan your receipt",
+    "step1Message": "Tap here to photograph your receipt — AI reads it in seconds",
+    "step2Title": "Review items",
+    "step2Message": "Check the items — tap any row to fix a name or price",
+    "step3Title": "Claim what you ate",
+    "step3Message": "Each person taps what they ate",
+    "step4Title": "Share the total",
+    "step4Message": "Everyone sees exactly what they owe",
+    "next": "Next →",
+    "done": "Done ✓",
+    "skip": "Skip tour"
+  }
+}

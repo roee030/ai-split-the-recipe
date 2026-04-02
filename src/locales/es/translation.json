@@ -1,0 +1,124 @@
+{
+  "app": { "name": "SplitSnap" },
+  "home": {
+    "title": "Divide la cuenta,\nno la amistad",
+    "scan": "Escanear recibo",
+    "recentActivity": "Actividad reciente",
+    "noHistory": "Sin divisiones recientes aún",
+    "noHistoryHint": "Tu historial de escaneos aparecerá aquí"
+  },
+  "errors": {
+    "BLURRY": "La foto salió un poco borrosa. Intenta sostener el teléfono más firme y vuelve a tomar la foto.",
+    "CROPPED": "Parece que parte del recibo está cortado. Asegúrate de que todos los bordes estén encuadrados.",
+    "LOW_LIGHT": "Está demasiado oscuro. Intenta encender una luz o usar el flash.",
+    "OCCLUDED": "Algo está cubriendo el texto — ¿quizás un dedo? Inténtalo de nuevo con el recibo completamente visible.",
+    "NOT_A_RECEIPT": "No pudimos identificar un recibo aquí. Asegúrate de fotografiar una factura clara.",
+    "NO_ITEMS_FOUND": "No pudimos encontrar ningún artículo. Intenta con una foto mejor iluminada.",
+    "TOO_MANY_REQUESTS": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
+    "RATE_LIMITED": "Por favor espera un momento antes de escanear de nuevo.",
+    "GENERIC": "Algo salió mal. Por favor inténtalo de nuevo."
+  },
+  "scan": {
+    "processing": "Leyendo tu recibo…",
+    "tips": {
+      "lighting": "Buena iluminación — evita sombras y reflejos",
+      "frame": "Recibo completo en el encuadre, de arriba a abajo",
+      "flat": "Mantenlo plano y estable",
+      "readable": "Los precios y nombres de artículos deben ser legibles"
+    }
+  },
+  "review": {
+    "title": "Revisar artículos",
+    "lowConfidence": "Algunos artículos pueden necesitar verificación — por favor revisa cuidadosamente",
+    "subtotalMismatch": "El total de artículos no coincide con el subtotal del recibo"
+  },
+  "people": {
+    "title": "¿Quién divide?",
+    "addPerson": "Añadir persona",
+    "justMe": "Solo yo",
+    "allOfUs": "Todos nosotros",
+    "someOfUs": "Algunos de nosotros"
+  },
+  "claim": {
+    "title": "Reclama tus artículos",
+    "unclaimed": "{{count}} sin reclamar",
+    "seeTotal": "Ver mi total",
+    "done": "Listo →"
+  },
+  "summary": {
+    "title": "Resumen",
+    "total": "Total",
+    "share": "Compartir",
+    "newSplit": "Nueva división"
+  },
+  "auth": {
+    "signIn": "Inicia sesión para continuar",
+    "saveHistory": "Guarda tu escaneo y rastrea el historial",
+    "lastFreeScan": "Este es tu último escaneo gratis — inicia sesión para continuar",
+    "google": "Continuar con Google",
+    "email": "Continuar con correo",
+    "skip": "Omitir por ahora",
+    "back": "Atrás",
+    "emailPlaceholder": "Correo electrónico",
+    "passwordPlaceholder": "Contraseña",
+    "continue": "Continuar",
+    "signingIn": "Iniciando sesión…",
+    "emailError": "Credenciales inválidas. Verifica tu correo y contraseña.",
+    "googleError": "Error al iniciar sesión con Google. Inténtalo de nuevo.",
+    "enterEmailPassword": "Ingresa correo y contraseña",
+    "agreeTerms": "Al continuar aceptas nuestros",
+    "terms": "Términos",
+    "and": "y",
+    "privacy": "Política de Privacidad"
+  },
+  "paywall": {
+    "title": "Has usado tus 5 escaneos gratuitos",
+    "subtitle": "Desbloquea escaneos ilimitados + historial completo por menos de un café al mes.",
+    "feature1": "Escaneos de recibos ilimitados",
+    "feature2": "Historial completo de escaneos",
+    "feature3": "Reabre cualquier división pasada",
+    "unlock": "Desbloquear — $0.99/mes",
+    "setting_up": "Configurando pago…",
+    "notNow": "Ahora no"
+  },
+  "settings": {
+    "title": "Configuración",
+    "language": "Idioma",
+    "theme": "Tema",
+    "themeLight": "Claro",
+    "themeDark": "Oscuro",
+    "themeSystem": "Sistema",
+    "legal": "Legal",
+    "privacyPolicy": "Política de Privacidad",
+    "termsOfService": "Términos de Servicio",
+    "deleteAccount": "Eliminar mi cuenta y datos",
+    "deleteConfirm": "¿Estás seguro? Esto elimina permanentemente todos tus datos.",
+    "deleteCancel": "Cancelar",
+    "deleteConfirmButton": "Eliminar todo",
+    "doNotSell": "No vendemos tu información personal",
+    "signOut": "Cerrar sesión"
+  },
+  "legal": {
+    "privacyTitle": "Política de Privacidad",
+    "termsTitle": "Términos de Servicio",
+    "lastUpdated": "Última actualización: abril 2026"
+  },
+  "consent": {
+    "message": "Usamos Firebase para almacenar tu historial de escaneos y cuenta. Esto es necesario para que la app funcione.",
+    "accept": "Aceptar y continuar",
+    "learnMore": "Saber más"
+  },
+  "onboarding": {
+    "step1Title": "Escanea tu recibo",
+    "step1Message": "Toca aquí para fotografiar tu recibo — la IA lo lee en segundos",
+    "step2Title": "Revisar artículos",
+    "step2Message": "Verifica los artículos — toca cualquier fila para corregir un nombre o precio",
+    "step3Title": "Reclama lo que comiste",
+    "step3Message": "Cada persona toca lo que comió",
+    "step4Title": "Comparte el total",
+    "step4Message": "Todos ven exactamente lo que deben",
+    "next": "Siguiente →",
+    "done": "Listo ✓",
+    "skip": "Omitir tour"
+  }
+}
