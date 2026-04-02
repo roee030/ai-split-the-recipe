@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -16,6 +17,8 @@ interface SignInModalProps {
 }
 
 export function SignInModal({ open, reason, onDismiss, onSuccess }: SignInModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, open);
   const [emailMode, setEmailMode] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -73,6 +76,10 @@ export function SignInModal({ open, reason, onDismiss, onSuccess }: SignInModalP
             onClick={reason !== 'required' ? onDismiss : undefined}
           />
           <motion.div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Sign in"
             className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl p-6 pb-10 shadow-xl"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}

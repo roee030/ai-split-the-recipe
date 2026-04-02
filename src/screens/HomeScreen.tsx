@@ -180,6 +180,7 @@ export function HomeScreen() {
       </div>
 
       {/* Error banner */}
+      <div role="alert" aria-live="polite">
       <AnimatePresence>
         {scanError && (
           <motion.div
@@ -205,6 +206,7 @@ export function HomeScreen() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
 
       <div className="flex-1 px-5 space-y-4">
         {/* Hero dark card */}
@@ -230,6 +232,7 @@ export function HomeScreen() {
               <motion.button
                 data-coach-step="1"
                 onClick={() => setStage('guide')}
+                aria-label="Scan receipt"
                 className="w-20 h-20 rounded-full bg-accent flex flex-col items-center justify-center gap-1 shadow-lg shadow-accent/40"
                 whileTap={{ scale: 0.92 }}
                 animate={{ scale: [1, 1.02, 1] }}
@@ -356,7 +359,7 @@ export function HomeScreen() {
               <div className="w-10 h-1 bg-border rounded-full mx-auto mb-6" />
               <div className="flex items-center justify-between mb-5">
                 <h2 className="font-display text-xl font-bold text-primary">Photo Tips</h2>
-                <button onClick={() => setStage('home')} className="text-muted p-1">
+                <button onClick={() => setStage('home')} aria-label="Close" className="text-muted p-1 min-h-[44px] min-w-[44px] flex items-center justify-center">
                   <X className="w-5 h-5" />
                 </button>
               </div>

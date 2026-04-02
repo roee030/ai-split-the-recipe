@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { motion, AnimatePresence } from 'framer-motion';
 import { doc, onSnapshot, collection, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -14,6 +15,8 @@ interface PaywallModalProps {
 }
 
 export function PaywallModal({ open, onDismiss, onUnlocked }: PaywallModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, open);
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -77,6 +80,10 @@ export function PaywallModal({ open, onDismiss, onUnlocked }: PaywallModalProps)
             exit={{ opacity: 0 }}
           />
           <motion.div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Upgrade to unlimited"
             className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl p-6 pb-10 shadow-xl"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
