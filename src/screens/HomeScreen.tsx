@@ -73,8 +73,8 @@ export function HomeScreen() {
         setScreen('home');
         setShowPaywall(true);
         return;
-      } else if (raw.includes('unauthenticated')) {
-        message = "Please sign in to scan receipts.";
+      } else if (raw.includes('TOO_MANY_REQUESTS') || raw.includes('429')) {
+        message = 'Too many requests. Please wait a moment and try again.';
       } else {
         message = "Something went wrong. Please try again.";
       }
