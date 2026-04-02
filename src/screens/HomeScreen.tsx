@@ -64,8 +64,16 @@ export function HomeScreen() {
     } catch (err) {
       const raw = err instanceof Error ? err.message : '';
       let message: string | null = null;
-      if (raw.includes('NOT_A_RECEIPT')) {
-        message = "That doesn't look like a receipt. Try again with a clearer photo.";
+      if (raw.includes('BLURRY')) {
+        message = "The photo came out a bit blurry. Try holding the phone steadier and shoot again.";
+      } else if (raw.includes('CROPPED')) {
+        message = "Part of the receipt looks cut off. Make sure all edges are in frame.";
+      } else if (raw.includes('LOW_LIGHT')) {
+        message = "It's too dark here. Try turning on a light or using flash.";
+      } else if (raw.includes('OCCLUDED')) {
+        message = "Something is covering the text. Try shooting again with the receipt fully exposed.";
+      } else if (raw.includes('NOT_A_RECEIPT')) {
+        message = "We couldn't identify a receipt here. Make sure you're photographing a clear bill or receipt.";
       } else if (raw.includes('NO_ITEMS_FOUND')) {
         message = "We couldn't find any items. Try a better-lit photo.";
       } else if (raw.includes('SCAN_LIMIT_REACHED')) {
@@ -74,7 +82,7 @@ export function HomeScreen() {
         setShowPaywall(true);
         return;
       } else if (raw.includes('TOO_MANY_REQUESTS') || raw.includes('429')) {
-        message = 'Too many requests. Please wait a moment and try again.';
+        message = 'Please wait a moment before scanning again.';
       } else {
         message = "Something went wrong. Please try again.";
       }
@@ -181,9 +189,10 @@ export function HomeScreen() {
             className="mx-5 mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700"
           >
             <p className="font-semibold mb-0.5">
-              {scanError.includes('Too many requests') ? '⏳ Rate limit hit'
-                : scanError.startsWith("That doesn't look") ? '🤔 Not a receipt'
-                : scanError.startsWith('No items') ? '🔍 Nothing detected'
+              {scanError.includes('wait a moment') ? '⏳ Rate limit hit'
+                : scanError.includes("identify a receipt") ? '🤔 Not a receipt'
+                : scanError.includes("find any items") ? '🔍 Nothing detected'
+                : scanError.includes('blurry') || scanError.includes('dark') || scanError.includes('cut off') || scanError.includes('covering') ? '📷 Photo issue'
                 : '⚠️ Scan failed'}
             </p>
             <p className="text-red-600 text-xs">{scanError}</p>
