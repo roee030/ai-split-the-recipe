@@ -108,6 +108,10 @@ Return ONLY the corrected full JSON object. Do not explain, do not use markdown.
 }
 
 async function geminiOCR(imageBase64: string, mimeType: string): Promise<{ transcript: string; tokens: PassTokens }> {
+  // Sanity-check: log the base64 size so we can confirm the image is not
+  // empty or truncated before it leaves the browser.
+  console.log(`[OCR Pass 1] image base64 chars: ${imageBase64.length} (~${Math.round(imageBase64.length * 0.75 / 1024)} KB)`);
+
   const response = await fetch(GENERATE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -194,21 +198,15 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-const OCR_PROMPT = `You are a high-resolution scanner. Transcribe every single character from this receipt image exactly as it appears. Do not format, do not create JSON, do not translate. Just raw text.
+const OCR_PROMPT = `OUTPUT ONLY THE TEXT YOU SEE IN THIS IMAGE. IF YOU SEE HEBREW, WRITE HEBREW. IF YOU SEE ARABIC, WRITE ARABIC. DO NOT TRANSLATE. DO NOT GUESS. IF YOU CANNOT READ A LINE, SKIP IT. START NOW.
 
-- Copy every line exactly as printed — item names, prices, totals, headers, footers
-- Preserve the original language and script exactly (Hebrew must stay Hebrew, Arabic must stay Arabic, etc.)
-- Keep item names and their prices on the same line
-- If a character is unclear or partially obscured, write "?" in its place
-- Do not correct spelling, do not normalize, do not guess — copy what you see
-
-If the image is too poor quality to read at all, output ONLY one of these (no other text):
+If the image is unreadable (blurry, cropped, dark, or not a receipt), output only one of:
 {"error":"BLURRY"}
 {"error":"CROPPED"}
 {"error":"LOW_LIGHT"}
 {"error":"NOT_A_RECEIPT"}
 
-Otherwise output the raw receipt text only — no JSON, no markdown, no explanation.`;
+Otherwise: raw text only, no JSON, no markdown.`;
 
 const STRUCTURE_PROMPT = `Below is a raw OCR transcript of a receipt. Convert it into a structured JSON object.
 
