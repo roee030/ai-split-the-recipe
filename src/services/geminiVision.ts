@@ -1,8 +1,11 @@
 import type { ParsedReceipt } from '../types/receipt.types';
 import { type PassTokens, type ScanTokens, calcScanCost } from '../monitoring/tokenCost';
 
-// Single model for everything: Gemini 2.5 Flash handles vision + structure in one shot.
-// It reads Hebrew receipts correctly and is free-tier for moderate usage.
+// Main scan: Claude claude-sonnet-4-5 — reads Hebrew receipts accurately, image → JSON in one call
+const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string;
+const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
+
+// Magic Fix only: Gemini 2.5 Flash — text-only re-verify, free tier
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
 
@@ -19,16 +22,13 @@ export async function scanReceipt(
 ): Promise<ScanResult> {
   const imageBase64 = await blobToBase64(imageBlob);
 
-  console.log(`[DEBUG] Image Chars: ${imageBase64.length} (~${Math.round(imageBase64.length * 0.75 / 1024)} KB)`);
+  console.log(`[DEBUG] Image size: ${imageBase64.length} chars (~${Math.round(imageBase64.length * 0.75 / 1024)} KB)`);
 
-  // Single pass: Gemini vision reads the image and returns structured JSON directly.
-  // This avoids the 2-call rate-limit problem and eliminates Claude hallucination issues.
-  const { receipt, transcript, tokens: pass1Tokens } = await geminiVisionScan(imageBase64, mimeType);
+  // Claude reads the image and returns structured JSON directly — one call, no middleman
+  const { receipt, transcript, tokens: pass1Tokens } = await claudeVisionScan(imageBase64, mimeType);
 
-  // Fire the "analyzing" phase callback immediately (single-pass, no real phase 2)
   onPass2Start?.();
 
-  // pass2 is empty — we only have one Gemini call now
   const emptyPass: PassTokens = { inputTokens: 0, outputTokens: 0 };
   const tokens = calcScanCost(pass1Tokens, emptyPass);
 
@@ -36,8 +36,8 @@ export async function scanReceipt(
 }
 
 /**
- * Magic Fix (Pass 2) — called when the user taps "Magic Fix".
- * Re-sends the stored transcript + mismatch context to Gemini (text-only, cheap).
+ * Magic Fix — called when the user taps "Magic Fix".
+ * Text-only: sends the stored transcript + mismatch info to Gemini (cheap).
  */
 export async function geminiReVerify(
   transcript: string,
@@ -110,62 +110,75 @@ Return ONLY the corrected full JSON object. Do not explain, do not use markdown.
   }
 }
 
-// ─── Single-pass Gemini Vision ────────────────────────────────────────────────
+// ─── Claude Vision — single call, image → structured JSON ────────────────────
 
-async function geminiVisionScan(
+async function claudeVisionScan(
   imageBase64: string,
   mimeType: string,
 ): Promise<{ receipt: ParsedReceipt; transcript: string; tokens: PassTokens }> {
-  const response = await fetch(GEMINI_URL, {
+  const response = await fetch(CLAUDE_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
     body: JSON.stringify({
-      contents: [{
-        parts: [
-          { inline_data: { mime_type: mimeType, data: imageBase64 } },
-          { text: VISION_PROMPT },
+      model: 'claude-sonnet-4-5',
+      max_tokens: 4096,
+      temperature: 0,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mimeType, data: imageBase64 },
+          },
+          { type: 'text', text: VISION_PROMPT },
         ],
       }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        maxOutputTokens: 8192,
-        temperature: 0,
-        thinkingConfig: { thinkingBudget: 0 },
-      },
     }),
   });
 
   if (!response.ok) {
     const status = response.status;
     if (status === 429) throw new Error('TOO_MANY_REQUESTS');
+    if (status === 401) throw new Error('ANTHROPIC_AUTH_ERROR');
     throw new Error(`HTTP_${status}`);
   }
 
   const json = await response.json();
-  const finishReason: string = json.candidates?.[0]?.finishReason ?? '';
-  const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-
-  if (!text.trim()) {
-    throw new Error(finishReason === 'OTHER' ? 'MODEL_ABORTED' : 'EMPTY_RESPONSE');
-  }
+  const rawText: string = json.content?.[0]?.text ?? '';
+  if (!rawText.trim()) throw new Error('EMPTY_RESPONSE');
 
   const tokens: PassTokens = {
-    inputTokens:  json.usageMetadata?.promptTokenCount     ?? 0,
-    outputTokens: json.usageMetadata?.candidatesTokenCount ?? 0,
+    inputTokens:  json.usage?.input_tokens  ?? 0,
+    outputTokens: json.usage?.output_tokens ?? 0,
   };
 
-  const parsed = JSON.parse(text);
-  if (parsed.error) throw new Error(parsed.error as string);
+  // Strip markdown code fences if Claude wrapped the JSON
+  const cleaned = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
 
-  // transcript = the raw_lines Gemini saw, for Magic Fix and the debug panel
+  let parsed: ParsedReceipt & { raw_lines?: string[]; error?: string };
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    console.error('[DEBUG] Claude returned non-JSON:', rawText);
+    throw new Error('PARSE_ERROR');
+  }
+
+  if (parsed.error) throw new Error(parsed.error);
+
+  // raw_lines is used for the debug panel and Magic Fix transcript
   const transcript: string = Array.isArray(parsed.raw_lines)
-    ? (parsed.raw_lines as string[]).join('\n')
-    : '';
+    ? parsed.raw_lines.join('\n')
+    : cleaned;
 
-  console.log('--- [DEBUG] GEMINI VISION: raw_lines ---', parsed.raw_lines);
-  console.log('--- [DEBUG] GEMINI VISION: structured ---', parsed);
+  console.log('--- [DEBUG] CLAUDE VISION: raw_lines ---', parsed.raw_lines);
+  console.log('--- [DEBUG] CLAUDE VISION: structured ---', parsed);
 
-  return { receipt: parsed as ParsedReceipt, transcript, tokens };
+  return { receipt: parsed, transcript, tokens };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -181,26 +194,25 @@ function blobToBase64(blob: Blob): Promise<string> {
 
 // ─── Prompt ───────────────────────────────────────────────────────────────────
 
-const VISION_PROMPT = `You are a receipt scanning engine. Look at this receipt image and return a single JSON object.
+const VISION_PROMPT = `Look at this receipt image and return a single JSON object.
 
-STEP 1 — READ THE IMAGE EXACTLY:
-Read every item line character-by-character. DO NOT guess, translate, or substitute words.
-- If you see "סן פלגרינו" write "סן פלגרינו" — never "בירה"
-- If you see "לימונענע גרוס" write "לימונענע גרוס" — never "מיץ"
-- If a word is truly unreadable write [?]
+READ THE IMAGE EXACTLY — character by character. You have excellent vision. Trust what you see.
+- Copy every Hebrew word exactly as printed. Do NOT guess or substitute.
+- If you see "סן פלגרינו" write "סן פלגרינו". If you see "לימונענע גרוס" write "לימונענע גרוס".
+- If a word is genuinely unreadable, write [?].
 
-ISRAELI RECEIPT LAYOUT (Tabit / Cafe Cafe):
-Lines are read LEFT TO RIGHT. The LEFT number is the PRICE. The RIGHT side is QUANTITY then ITEM NAME.
-Example: "98.00   1 עוף בצל"  →  price=98.00, quantity=1, name="עוף בצל"
-Example: "136.00  2 חומוסים סיגרה"  →  unit_price=68.00, total_price=136.00, quantity=2, name="חומוסים סיגרה"
-DO NOT confuse the price for the quantity.
+ISRAELI RECEIPT LAYOUT (Tabit / Cafe Cafe style):
+Lines read LEFT TO RIGHT. The LEFT number is the price. The right side is: quantity then item name.
+  "98.00   1 עוף בצל"        →  price=98.00, qty=1, name="עוף בצל"
+  "136.00  2 חומוסים סיגרה"  →  unit_price=68.00, total_price=136.00, qty=2, name="חומוסים סיגרה"
+DO NOT confuse the price (left) for the quantity (right, before the name).
 
-Sub-items (toppings / discounts) appear indented or with >> / + / - prefix.
-Discount lines have a minus sign: "-10.00 הנחה" → sub_item with price: -10
+Sub-items / toppings appear indented or prefixed with >> or +.
+Discounts have a minus: "-10.00 הנחה" → sub_item with price: -10
 
-STEP 2 — RETURN THIS EXACT JSON (no markdown, no explanation):
+Return ONLY this JSON (no markdown fences, no explanation):
 {
-  "raw_lines": ["exact text of each item line as you read it from the image"],
+  "raw_lines": ["each item line exactly as you read it from the image"],
   "isReceipt": true,
   "receipt_type": "restaurant",
   "restaurant_name": string | null,
@@ -225,9 +237,8 @@ STEP 2 — RETURN THIS EXACT JSON (no markdown, no explanation):
 
 Rules:
 - quantity defaults to 1 if not shown
-- unit_price = total_price / quantity
-- total_price = unit_price × quantity
+- unit_price = total_price ÷ quantity
 - If a price is unreadable: unit_price: null, total_price: null, price_missing: true
 - confidence = "low" if any price is missing or data is ambiguous
-- Ignore: restaurant header, address, phone, loyalty points, QR codes, totals rows
-- If image is not a receipt or is unreadable: { "error": "NOT_A_RECEIPT" } or { "error": "BLURRY" }`;
+- Ignore: restaurant header, address, phone number, loyalty text, QR codes, totals rows
+- If not a receipt or unreadable: { "error": "NOT_A_RECEIPT" } or { "error": "BLURRY" }`;
