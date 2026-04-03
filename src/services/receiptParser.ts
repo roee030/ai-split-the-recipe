@@ -3,30 +3,53 @@ import { generateId } from '../utils/idGenerator';
 
 const ROUNDING_TOLERANCE = 0.11; // 0.10 + floating point buffer
 
+/**
+ * Safely converts any price value from Gemini to a JS number.
+ * Handles: null/undefined → 0, currency symbols (₪$€£¥), comma decimal separators,
+ * thousands separators. This is the last line of defence after the prompt fix.
+ */
+export function parsePrice(raw: unknown): number {
+  if (raw === null || raw === undefined) return 0;
+  if (typeof raw === 'number') return isNaN(raw) ? 0 : raw;
+  const str = String(raw).trim();
+  // Strip currency symbols
+  const stripped = str.replace(/[₪$€£¥]/g, '').trim();
+  // Handle comma as decimal separator: "25,90" → "25.90"
+  // But not thousands separator: "1,250.00" stays as "1250.00"
+  const normalized = stripped.replace(/,(\d{2})$/, '.$1').replace(/,/g, '');
+  const result = parseFloat(normalized);
+  return isNaN(result) ? 0 : result;
+}
+
 export function parseReceiptToItems(parsed: ParsedReceipt): ReceiptItem[] {
   return parsed.items.map((item) => {
     const qty = item.quantity || 1;
-    const basePrice = item.totalPrice ?? 0;
+
+    // Use snake_case fields from Gemini if camelCase not set
+    const rawTotal = item.totalPrice ?? (item as Record<string, unknown>).total_price;
+    const rawUnit  = item.unitPrice  ?? (item as Record<string, unknown>).unit_price;
+    const priceMissing = !!(item as Record<string, unknown>).price_missing;
+
+    const basePrice = parsePrice(rawTotal);
+    const unitPrice = parsePrice(rawUnit);
 
     // Sum all sub_item prices (extras add, discounts subtract)
     const subItems = item.sub_items ?? [];
-    const subTotal = subItems.reduce((sum, si) => sum + (si.price ?? 0), 0);
+    const subTotal = subItems.reduce((sum, si) => sum + parsePrice(si.price), 0);
     const effectiveTotalPrice = parseFloat((basePrice + subTotal).toFixed(2));
 
     // Append sub_item names to the parent name for display
-    // Zero-price sub_items are notes (e.g. "ללא גלוטן"), non-zero are charges/discounts
     const subNames = subItems.map((si) => si.name).filter(Boolean);
     const displayName = subNames.length > 0
       ? `${item.name} (${subNames.join(', ')})`
       : item.name;
 
-    const unitPrice = item.unitPrice ?? 0;
-
     // Math invariant: unitPrice x qty should equal effectiveTotalPrice
     const expected = parseFloat((unitPrice * qty).toFixed(2));
-    const mathBroken = Math.abs(expected - effectiveTotalPrice) > ROUNDING_TOLERANCE && effectiveTotalPrice !== 0;
+    const mathBroken = !priceMissing &&
+      Math.abs(expected - effectiveTotalPrice) > ROUNDING_TOLERANCE &&
+      effectiveTotalPrice !== 0;
 
-    // effectiveTotalPrice is ground truth — re-derive unitPrice if math is broken
     const correctedUnitPrice = mathBroken
       ? parseFloat((effectiveTotalPrice / qty).toFixed(4))
       : unitPrice;
@@ -39,8 +62,9 @@ export function parseReceiptToItems(parsed: ParsedReceipt): ReceiptItem[] {
       totalPrice: effectiveTotalPrice,
       category: item.category || 'other',
       isEdited: false,
-      hasExtras: subItems.some((si) => (si.price ?? 0) !== 0),
-      flagged: mathBroken,
+      hasExtras: subItems.some((si) => parsePrice(si.price) !== 0),
+      // price_missing items get flagged so ⚠️ shows in ReviewScreen
+      flagged: mathBroken || priceMissing,
     };
   });
 }

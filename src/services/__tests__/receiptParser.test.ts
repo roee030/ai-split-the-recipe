@@ -1,6 +1,44 @@
 import { describe, it, expect } from 'vitest';
-import { parseReceiptToItems, checkSubtotalMismatch } from '../receiptParser';
+import { parseReceiptToItems, checkSubtotalMismatch, parsePrice } from '../receiptParser';
 import type { ParsedReceipt } from '../../types/receipt.types';
+
+describe('parsePrice', () => {
+  it('returns number as-is', () => {
+    expect(parsePrice(25.9)).toBe(25.9);
+  });
+
+  it('handles null → 0', () => {
+    expect(parsePrice(null)).toBe(0);
+  });
+
+  it('handles undefined → 0', () => {
+    expect(parsePrice(undefined)).toBe(0);
+  });
+
+  it('strips ₪ symbol', () => {
+    expect(parsePrice('₪25.90')).toBe(25.9);
+  });
+
+  it('strips $ symbol', () => {
+    expect(parsePrice('$12.50')).toBe(12.5);
+  });
+
+  it('converts comma decimal separator', () => {
+    expect(parsePrice('25,90')).toBe(25.9);
+  });
+
+  it('handles thousands separator with comma', () => {
+    expect(parsePrice('1,250.00')).toBe(1250);
+  });
+
+  it('handles price with trailing ₪', () => {
+    expect(parsePrice('25.90₪')).toBe(25.9);
+  });
+
+  it('returns 0 for unparseable string', () => {
+    expect(parsePrice('???')).toBe(0);
+  });
+});
 
 const baseReceipt: ParsedReceipt = {
   isReceipt: true,
