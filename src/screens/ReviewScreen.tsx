@@ -6,6 +6,7 @@ import { ScreenContainer } from '../components/common/ScreenContainer';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { BackButton } from '../components/common/BackButton';
 import { createManualItem, checkSubtotalMismatch } from '../services/receiptParser';
+import { monitoring } from '../monitoring';
 
 // Simple category icon based on item name keywords
 function getItemIcon(name: string): string {
@@ -36,11 +37,25 @@ export function ReviewScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [serviceAsTip, setServiceAsTip] = useState<boolean | null>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
+  const editedFieldsRef = useRef<Set<'name' | 'price' | 'quantity'>>(new Set());
+
+  function commitEdit() {
+    editedFieldsRef.current.forEach((field) => {
+      monitoring.track('item_manually_edited', {
+        field,
+        receipt_type: 'unknown',
+        confidence: scanConfidence ?? 'low',
+      });
+    });
+    editedFieldsRef.current = new Set();
+    setEditingId(null);
+  }
 
   function handleAddManual() {
     const item = createManualItem();
     addItem(item);
     setEditingId(item.id);
+    monitoring.track('item_added_manually', { receipt_type: 'unknown' });
   }
   const grandTotal = receiptItems.reduce((s, i) => s + i.totalPrice, 0);
   const subtotalWarning = checkSubtotalMismatch(receiptItems, subtotal ?? null);
@@ -166,7 +181,7 @@ export function ReviewScreen() {
                     <input
                       className="w-full text-sm font-medium text-primary bg-bg border border-border rounded-xl px-3 py-2.5 outline-none focus:border-accent"
                       value={item.name}
-                      onChange={(e) => updateItem(item.id, { name: e.target.value })}
+                      onChange={(e) => { editedFieldsRef.current.add('name'); updateItem(item.id, { name: e.target.value }); }}
                       placeholder="Item name"
                       autoFocus
                       onKeyDown={(e) => {
@@ -183,6 +198,7 @@ export function ReviewScreen() {
                         value={item.quantity}
                         min={1}
                         onChange={(e) => {
+                          editedFieldsRef.current.add('quantity');
                           const q = Number(e.target.value) || 1;
                           updateItem(item.id, { quantity: q, totalPrice: item.unitPrice * q });
                         }}
@@ -195,15 +211,16 @@ export function ReviewScreen() {
                         value={item.unitPrice}
                         step="0.01"
                         onChange={(e) => {
+                          editedFieldsRef.current.add('price');
                           const p = Number(e.target.value) || 0;
                           updateItem(item.id, { unitPrice: p, totalPrice: p * item.quantity });
                         }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') setEditingId(null);
+                          if (e.key === 'Enter') commitEdit();
                         }}
                       />
                       <button
-                        onClick={() => setEditingId(null)}
+                        onClick={() => commitEdit()}
                         className="px-3 py-2 bg-primary text-white text-xs font-semibold rounded-xl"
                       >
                         Done
@@ -238,7 +255,7 @@ export function ReviewScreen() {
                     <button onClick={() => setEditingId(item.id)} className="text-muted p-1">
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => deleteItem(item.id)} className="text-red-400 p-1">
+                    <button onClick={() => { deleteItem(item.id); monitoring.track('item_deleted', { receipt_type: 'unknown' }); }} className="text-red-400 p-1">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
