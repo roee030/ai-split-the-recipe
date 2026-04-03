@@ -9,6 +9,7 @@ import { parseReceiptToItems } from '../services/receiptParser';
 import { SignInModal } from '../components/auth/SignInModal';
 import { PaywallModal } from '../components/paywall/PaywallModal';
 import { getLocalScansUsed, incrementLocalScansUsed } from '../hooks/useSplitSession';
+import { monitoring } from '../monitoring';
 import { useScanHistory } from '../hooks/useScanHistory';
 import { formatScanDate } from '../utils/formatDate';
 
@@ -27,6 +28,8 @@ export function HomeScreen() {
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const scanningRef = useRef(false);
+  const sourceRef = useRef<'camera' | 'upload'>('camera');
+  const lastErrorCodeRef = useRef<string | null>(null);
 
   const [stage, setStage] = useState<Stage>('home');
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
@@ -52,25 +55,51 @@ export function HomeScreen() {
   async function doScan(file: File) {
     if (scanningRef.current) return;
     scanningRef.current = true;
+    if (lastErrorCodeRef.current) {
+      monitoring.track('scan_retried', { previous_error_code: lastErrorCodeRef.current });
+      lastErrorCodeRef.current = null;
+    }
+    monitoring.track('scan_started', { source: sourceRef.current });
     setScanCooldown(10);
     incrementLocalScansUsed();
     setScanError(null);
     setScreen('processing');
     try {
       const { blob, mimeType } = await prepareImage(file);
-      const parsed = await scanReceipt(blob, mimeType);
-      const items = parseReceiptToItems(parsed);
+      const { receipt, tokens } = await scanReceipt(blob, mimeType);
+      const items = parseReceiptToItems(receipt);
       setReceiptData(items, {
-        restaurantName: parsed.restaurantName,
-        tax: parsed.currency === 'ILS' ? 0 : (parsed.tax ?? 0),
-        serviceCharge: parsed.serviceCharge ?? 0,
-        currency: parsed.currency ?? 'ILS',
-        subtotal: parsed.subtotal ?? null,
-        scanConfidence: parsed.confidence ?? null,
+        restaurantName: receipt.restaurantName,
+        tax: receipt.currency === 'ILS' ? 0 : (receipt.tax ?? 0),
+        serviceCharge: receipt.serviceCharge ?? 0,
+        currency: receipt.currency ?? 'ILS',
+        subtotal: receipt.subtotal ?? null,
+        scanConfidence: receipt.confidence ?? null,
       });
       setScreen('review');
+      monitoring.track('scan_completed', {
+        receipt_type: receipt.receipt_type ?? 'other',
+        item_count: items.length,
+        confidence: receipt.confidence ?? 'low',
+        pass1_input_tokens: tokens.pass1.inputTokens,
+        pass1_output_tokens: tokens.pass1.outputTokens,
+        pass2_input_tokens: tokens.pass2.inputTokens,
+        pass2_output_tokens: tokens.pass2.outputTokens,
+        total_input_tokens: tokens.totalInputTokens,
+        total_output_tokens: tokens.totalOutputTokens,
+        estimated_cost_usd: tokens.estimatedCostUSD,
+      });
     } catch (err) {
       const raw = err instanceof Error ? err.message : '';
+      const errorCode = raw || 'UNKNOWN';
+      lastErrorCodeRef.current = errorCode;
+      monitoring.track('scan_failed', {
+        error_code: errorCode,
+        failed_pass: raw.includes('BLURRY') || raw.includes('CROPPED') || raw.includes('LOW_LIGHT') || raw.includes('OCCLUDED') || raw.includes('NOT_A_RECEIPT') ? 1 : 2,
+        total_input_tokens: 0,
+        total_output_tokens: 0,
+        estimated_cost_usd: 0,
+      });
       let message: string | null = null;
       if (raw.includes('BLURRY')) {
         message = "The photo came out a bit blurry. Try holding the phone steadier and shoot again.";
@@ -130,6 +159,7 @@ export function HomeScreen() {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
+    sourceRef.current = 'camera';
     showPreview(file);
   }
 
@@ -137,6 +167,7 @@ export function HomeScreen() {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
+    sourceRef.current = 'upload';
     showPreview(file);
   }
 
