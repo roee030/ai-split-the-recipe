@@ -53,7 +53,27 @@ Re-examine the transcript carefully. Common causes:
 - Two adjacent item prices were merged into one
 - A discount was incorrectly subtracted from an item's total_price instead of being a sub_item
 
-Return ONLY the corrected full JSON object using the exact same schema as before (same fields: receipt_type, restaurant_name, currency, subtotal, tax, service_charge, confidence, items). Do not explain, do not use markdown.`;
+Return ONLY the corrected full JSON object. Do not explain, do not use markdown. Use this exact schema:
+{
+  "receipt_type": "grocery" | "restaurant" | "gas" | "other",
+  "restaurant_name": string | null,
+  "currency": string,
+  "subtotal": number | null,
+  "tax": number | null,
+  "service_charge": number | null,
+  "confidence": "high" | "medium" | "low",
+  "items": [
+    {
+      "name": string,
+      "quantity": number,
+      "unit_price": number | null,
+      "total_price": number | null,
+      "price_missing": boolean,
+      "sub_items": [{ "name": string, "price": number | null }]
+    }
+  ]
+}`;
+
 
   const response = await fetch(GENERATE_URL, {
     method: 'POST',
