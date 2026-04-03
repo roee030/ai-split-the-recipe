@@ -1,7 +1,7 @@
 import type { ParsedReceipt } from '../types/receipt.types';
 import { type PassTokens, type ScanTokens, calcScanCost } from '../monitoring/tokenCost';
 
-// Pass 1: Claude claude-sonnet-4-5 — "Human-Eye" Hebrew menu interpretation
+// Pass 1: Claude claude-sonnet-4-5 — mechanical character extraction
 const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string;
 const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
 
@@ -20,15 +20,16 @@ export async function scanReceipt(
   mimeType: string,
   onPass2Start?: () => void,
 ): Promise<ScanResult> {
-  const imageBase64 = await blobToBase64(imageBlob);
-  console.log(`[DEBUG] Image: ${Math.round(imageBase64.length * 0.75 / 1024)} KB`);
+  // Apply darkroom filter then convert to base64
+  const processedBase64 = await applyDarkroom(imageBlob);
+  console.log(`[DEBUG] Processed image: ~${Math.round(processedBase64.length * 0.75 / 1024)} KB`);
 
-  // Pass 1: Claude — character-level OCR with high-contrast preprocessed image
-  const { transcript, tokens: pass1Tokens } = await claudeHumanEyeOCR(imageBase64, mimeType);
+  // Pass 1: Claude reads the darkroom-filtered image → raw text
+  const { transcript, tokens: pass1Tokens } = await claudeOCR(processedBase64, mimeType);
 
   onPass2Start?.();
 
-  // Pass 2: Gemini converts the clean transcript to structured JSON
+  // Pass 2: Gemini converts the transcript → structured JSON
   const { receipt, tokens: pass2Tokens } = await geminiStructure(transcript);
 
   const tokens = calcScanCost(pass1Tokens, pass2Tokens);
@@ -87,9 +88,39 @@ Return ONLY corrected JSON, no markdown:
   } catch { return null; }
 }
 
-// ─── Pass 1: Claude "Human-Eye" OCR ──────────────────────────────────────────
+// ─── Darkroom pre-processing ──────────────────────────────────────────────────
+// Converts a PNG blob to a high-contrast grayscale base64 string.
+// Thermal receipt paper → pure white. Ink → pure black. No grey noise.
+// Done here (not in imageResize.ts) so the pipeline is self-contained.
 
-async function claudeHumanEyeOCR(
+async function applyDarkroom(blob: Blob): Promise<string> {
+  const img = await createImageBitmap(blob);
+  const { width, height } = img;
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+
+  // grayscale(100%)   — remove colour noise from phone cameras
+  // contrast(200%)    — crush grey thermal ink to pure black, bleach paper to pure white
+  ctx.filter = 'grayscale(100%) contrast(200%)';
+  ctx.drawImage(img, 0, 0, width, height);
+
+  return new Promise<string>((resolve, reject) => {
+    canvas.toBlob((b) => {
+      if (!b) { reject(new Error('DARKROOM_FAILED')); return; }
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(b);
+    }, 'image/png');
+  });
+}
+
+// ─── Pass 1: Claude mechanical OCR ───────────────────────────────────────────
+
+async function claudeOCR(
   imageBase64: string,
   mimeType: string,
 ): Promise<{ transcript: string; tokens: PassTokens }> {
@@ -107,7 +138,7 @@ async function claudeHumanEyeOCR(
       temperature: 0,
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
-        { type: 'text', text: HUMAN_EYE_PROMPT },
+        { type: 'text', text: OCR_PROMPT },
       ]}],
     }),
   });
@@ -130,7 +161,6 @@ async function claudeHumanEyeOCR(
 
   const trimmed = text.trim();
 
-  // Handle error responses
   if (trimmed.startsWith('{')) {
     try {
       const parsed = JSON.parse(trimmed);
@@ -200,33 +230,44 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+// keep export so HomeScreen can still use it for debug panel base64 copy
+export { blobToBase64 };
+
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
-const HUMAN_EYE_PROMPT = `You are a mechanical character recognizer. Do not look at words. Look at characters.
+const OCR_PROMPT = `Your role is a RAW DATA EXTRACTOR. You are an OCR engine with zero knowledge of restaurants.
 
-Transcribe the image strictly by mapping visual glyphs to Hebrew letters.
-If you see "מ-ו-ז-ס", do not write "ק-ו-ק-ה".
-I would rather have a typo like "מזס מלן" than a hallucination like "קוקה קולה".
-Output ONLY the characters you are 100% sure of. Use [?] for ambiguous ones.
+DO NOT guess words. DO NOT complete sentences. DO NOT use your knowledge of Hebrew food or menus.
+If you see "ע-ק-ר-ב", write "עקרב". Do not change it to "עוף" or any other word.
+Transcribe the visual shapes exactly as they appear, character by character.
+If a line is unreadable, write [UNREADABLE].
 
-RECEIPT LAYOUT (Tabit system): each item line has PRICE on the LEFT, QUANTITY (1/2/3), then ITEM NAME in Hebrew on the right.
-Example: 53.00  1 סלט קיסר
+LAYOUT — Tabit receipt system:
+Each item line has a PRICE on the far LEFT. Use the price as your anchor to find each line.
+Then read the QUANTITY (a single digit: 1, 2, 3) and then the ITEM NAME in Hebrew to the right of it.
 
-OUTPUT FORMAT — one line per item, raw text only:
-53.00  1 סלט קיסר
-18.00  1 קוקה קולה
+Structure of each output line:
+  <price>  <quantity> <name>
+Examples:
+  98.00  1 עקרב ופטריות
+  136.00 2 חומוסים סיגרה
+  713.00 1 פירות מלך הפטה
 
-SKIP: restaurant name, address, phone, totals, tax, QR code, loyalty text.
+OUTPUT RULES:
+- One line per item only
+- Skip: header, address, phone, total row, tax row, QR code, loyalty text
+- Raw text only — no JSON, no markdown, no explanations
 
-If the image is not a receipt or is completely unreadable, output only: {"error":"NOT_A_RECEIPT"}`;
+If image is unreadable: {"error":"BLURRY"}
+If not a receipt: {"error":"NOT_A_RECEIPT"}`;
 
 const STRUCTURE_PROMPT = `Convert this receipt transcript into a JSON object.
 
 NAMES: Copy item names EXACTLY from the transcript. Do not change any word.
 
 LINE FORMAT:  PRICE  QUANTITY  NAME
-  "98.00  1 עוף בצל"       → total_price=98, qty=1, name="עוף בצל"
-  "136.00 2 חומוסים סיגרה" → unit_price=68, total_price=136, qty=2, name="חומוסים סיגרה"
+  "98.00  1 עקרב ופטריות"      → total_price=98, qty=1, name="עקרב ופטריות"
+  "136.00 2 חומוסים סיגרה"     → unit_price=68, total_price=136, qty=2, name="חומוסים סיגרה"
 
 Sub-items: indented or prefixed >> / + → attach to item above.
 Discounts: "-10.00 הנחה" → sub_item with price: -10.
