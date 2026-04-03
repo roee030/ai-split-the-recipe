@@ -25,6 +25,7 @@ const DEFAULT_SESSION: SplitSession = {
   currency: 'ILS',
   scanConfidence: null,
   splitMode: null,
+  lastTranscript: null,
 };
 
 // Screens that get their own browser history entry (back-navigable)

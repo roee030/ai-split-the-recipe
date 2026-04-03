@@ -12,7 +12,7 @@ export interface ReceiptItem {
 
 export interface RawSubItem {
   name: string;
-  price: number; // positive = extra charge, negative = discount/reduction
+  price: number | null; // positive = extra charge, negative = discount/reduction
 }
 
 export interface RawReceiptItem {
@@ -23,6 +23,9 @@ export interface RawReceiptItem {
   totalPrice: number;
   category: 'food' | 'drink' | 'dessert' | 'other';
   sub_items?: RawSubItem[];
+  unit_price?: number | null;   // Gemini field name (snake_case)
+  total_price?: number | null;  // Gemini field name (snake_case)
+  price_missing?: boolean;
 }
 
 export interface ParsedReceipt {

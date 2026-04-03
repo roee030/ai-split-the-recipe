@@ -34,6 +34,7 @@ export interface SplitSession {
   currency: string;
   scanConfidence: 'high' | 'medium' | 'low' | null;
   splitMode: 'solo' | 'whole' | 'some' | null;
+  lastTranscript: string | null;
 }
 
 export type Screen =
