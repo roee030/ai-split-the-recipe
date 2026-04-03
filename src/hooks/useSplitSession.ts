@@ -270,6 +270,14 @@ export function useSplitSession() {
     setSession((s) => ({ ...s, serviceCharge }));
   }, []);
 
+  const setTranscript = useCallback((transcript: string) => {
+    setSession((s) => ({ ...s, lastTranscript: transcript }));
+  }, []);
+
+  const setReceiptItems = useCallback((items: ReceiptItem[]) => {
+    setSession((s) => ({ ...s, receiptItems: items }));
+  }, []);
+
   const reset = useCallback(() => {
     setSession(DEFAULT_SESSION);
     setScreenState('home');
@@ -305,6 +313,8 @@ export function useSplitSession() {
     setTip,
     setTax,
     setServiceCharge,
+    setTranscript,
+    setReceiptItems,
     reset,
     unclaimedCount,
   };
