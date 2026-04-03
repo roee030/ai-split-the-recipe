@@ -1,4 +1,5 @@
 import posthog from 'posthog-js';
+import type { PostHogInterface } from 'posthog-js';
 import type { MonitoringEvent, EventProperties } from './events';
 
 export function initPostHog(): void {
@@ -11,7 +12,7 @@ export function initPostHog(): void {
       maskAllInputs: true,
     },
     enable_recording_console_log: true,
-    loaded: (ph) => {
+    loaded: (ph: PostHogInterface) => {
       if (import.meta.env.DEV) ph.opt_out_capturing();
     },
   });

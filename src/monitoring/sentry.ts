@@ -1,31 +1,17 @@
-import * as Sentry from '@sentry/react';
+// Error capture is delegated to PostHog — no Sentry dependency.
+import posthog from 'posthog-js';
 
-export function initSentry(): void {
-  const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn) return; // no-op in local dev without DSN configured
-
-  Sentry.init({
-    dsn,
-    tracesSampleRate: 0.2,
-    replaysOnErrorSampleRate: 1.0,
-    sendDefaultPii: false,
-    integrations: [
-      Sentry.replayIntegration({
-        maskAllInputs: true,
-        maskAllText: false,
-      }),
-    ],
-  });
-}
+// Kept as a no-op so main.tsx call site compiles without changes.
+export function initSentry(): void {}
 
 export function sentryCapture(err: Error, ctx?: Record<string, unknown>): void {
-  Sentry.captureException(err, { extra: ctx });
+  posthog.captureException(err, ctx);
 }
 
-export function sentryIdentify(userId: string, email?: string): void {
-  Sentry.setUser({ id: userId, email });
+export function sentryIdentify(_userId: string, _email?: string): void {
+  // Identity is managed by posthog.identify() in posthog.ts
 }
 
 export function sentryReset(): void {
-  Sentry.setUser(null);
+  // Reset is managed by posthog.reset() in posthog.ts
 }
