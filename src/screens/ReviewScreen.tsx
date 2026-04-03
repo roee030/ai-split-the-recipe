@@ -8,6 +8,7 @@ import { BackButton } from '../components/common/BackButton';
 import { createManualItem, checkSubtotalMismatch, parseReceiptToItems } from '../services/receiptParser';
 import { geminiReVerify } from '../services/geminiVision';
 import { monitoring } from '../monitoring';
+import { saveCorrection } from '../utils/correctionDictionary';
 
 // Simple category icon based on item name keywords
 function getItemIcon(name: string): string {
@@ -43,8 +44,19 @@ export function ReviewScreen() {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const priceInputRef = useRef<HTMLInputElement>(null);
   const editedFieldsRef = useRef<Set<'name' | 'price' | 'quantity'>>(new Set());
+  /** Snapshot of the item's OCR name at the moment editing starts, for correction-dictionary saving. */
+  const editStartOcrNameRef = useRef<string | null>(null);
 
   function commitEdit() {
+    // If the name was changed and we have a restaurant + the original OCR name, save a correction
+    if (editedFieldsRef.current.has('name') && restaurantName && editingId) {
+      const item = receiptItems.find(i => i.id === editingId);
+      const ocrKey = editStartOcrNameRef.current;
+      if (item && ocrKey && ocrKey !== item.name) {
+        saveCorrection(restaurantName, ocrKey, item.name);
+      }
+    }
+
     editedFieldsRef.current.forEach((field) => {
       monitoring.track('item_manually_edited', {
         field,
@@ -53,6 +65,7 @@ export function ReviewScreen() {
       });
     });
     editedFieldsRef.current = new Set();
+    editStartOcrNameRef.current = null;
     setEditingId(null);
   }
 
@@ -322,7 +335,11 @@ export function ReviewScreen() {
                       className="text-sm font-bold text-primary whitespace-nowrap"
                       showWarningForZero={item.flagged && item.totalPrice === 0}
                     />
-                    <button onClick={() => setEditingId(item.id)} className="text-muted p-1">
+                    <button onClick={() => {
+                      // Capture the OCR key before any edits — used to save correction on commit
+                      editStartOcrNameRef.current = item.originalOcrName ?? item.name;
+                      setEditingId(item.id);
+                    }} className="text-muted p-1">
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                     <button onClick={() => { deleteItem(item.id); monitoring.track('item_deleted', { receipt_type: 'unknown' }); }} className="text-red-400 p-1">

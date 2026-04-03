@@ -1,5 +1,6 @@
 import type { ParsedReceipt, ReceiptItem } from '../types/receipt.types';
 import { generateId } from '../utils/idGenerator';
+import { applyCorrection } from '../utils/correctionDictionary';
 
 const ROUNDING_TOLERANCE = 0.11; // 0.10 + floating point buffer
 
@@ -21,7 +22,10 @@ export function parsePrice(raw: unknown): number {
   return isNaN(result) ? 0 : result;
 }
 
-export function parseReceiptToItems(parsed: ParsedReceipt): ReceiptItem[] {
+export function parseReceiptToItems(
+  parsed: ParsedReceipt,
+  restaurantName?: string | null,
+): ReceiptItem[] {
   return parsed.items.map((item) => {
     const qty = item.quantity || 1;
 
@@ -38,11 +42,15 @@ export function parseReceiptToItems(parsed: ParsedReceipt): ReceiptItem[] {
     const subTotal = subItems.reduce((sum, si) => sum + parsePrice(si.price), 0);
     const effectiveTotalPrice = parseFloat((basePrice + subTotal).toFixed(2));
 
+    // Apply correction-dictionary substitution (preserving raw OCR name for future corrections)
+    const ocrName = item.name;
+    const correctedName = applyCorrection(restaurantName ?? null, ocrName);
+
     // Append sub_item names to the parent name for display
     const subNames = subItems.map((si) => si.name).filter(Boolean);
     const displayName = subNames.length > 0
-      ? `${item.name} (${subNames.join(', ')})`
-      : item.name;
+      ? `${correctedName} (${subNames.join(', ')})`
+      : correctedName;
 
     // Math invariant: unitPrice x qty should equal effectiveTotalPrice
     const expected = parseFloat((unitPrice * qty).toFixed(2));
@@ -57,6 +65,8 @@ export function parseReceiptToItems(parsed: ParsedReceipt): ReceiptItem[] {
     return {
       id: item.id || generateId(),
       name: displayName,
+      // Store the raw OCR name so the feedback loop can save accurate corrections
+      originalOcrName: ocrName !== correctedName ? ocrName : undefined,
       quantity: qty,
       unitPrice: correctedUnitPrice,
       totalPrice: effectiveTotalPrice,

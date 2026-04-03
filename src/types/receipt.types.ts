@@ -1,6 +1,8 @@
 export interface ReceiptItem {
   id: string;
   name: string;
+  /** Raw text from OCR before any correction-dictionary substitution. */
+  originalOcrName?: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;

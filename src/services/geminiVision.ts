@@ -1,13 +1,15 @@
 import type { ParsedReceipt } from '../types/receipt.types';
 import { type PassTokens, type ScanTokens, calcScanCost } from '../monitoring/tokenCost';
 
-// Pass 1 (OCR): Claude 3.5 Sonnet — best-in-class Hebrew vision
-const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string;
-const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
+const BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models`;
 
-// Pass 2 (structure) + Pass 3 (Magic Fix): Gemini 2.5 Flash — text-only, free
-const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
+// Both passes use gemini-2.5-flash — the best model available on the free tier.
+// gemini-2.5-pro has a free-tier quota of 0 (paid plan required).
+const OCR_URL       = `${BASE_URL}/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+const STRUCTURE_URL = `${BASE_URL}/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+// Pass 3 (Magic Fix) is text-only re-verify
+const GENERATE_URL  = STRUCTURE_URL;
 
 export type ScanResult = {
   receipt: ParsedReceipt;
@@ -22,13 +24,13 @@ export async function scanReceipt(
 ): Promise<ScanResult> {
   const imageBase64 = await blobToBase64(imageBlob);
 
-  // Pass 1: Claude 3.5 Sonnet — pure literal OCR, image → raw text
-  const { transcript, tokens: pass1Tokens } = await claudeOCR(imageBase64, mimeType);
+  // Pass 1: OCR — pure literal transcription of the image into raw text
+  const { transcript, tokens: pass1Tokens } = await geminiOCR(imageBase64, mimeType);
 
   // Notify caller that Pass 1 is done and Pass 2 (analysis) is starting
   onPass2Start?.();
 
-  // Pass 2: Gemini 2.5 Flash — text → JSON (no image, free tier)
+  // Pass 2: Structure — convert raw text to JSON (no image involved)
   const { receipt, tokens: pass2Tokens } = await geminiStructure(transcript);
 
   const tokens = calcScanCost(pass1Tokens, pass2Tokens);
@@ -36,8 +38,9 @@ export async function scanReceipt(
 }
 
 /**
- * Pass 3 — Magic Fix: called when the user taps "Magic Fix".
- * Sends stored OCR transcript + mismatch context to Gemini (text-only, cheap).
+ * Pass 3 — Re-verify: called only when the user clicks "Magic Fix".
+ * Sends the stored OCR transcript (not the image) + mismatch context to Gemini.
+ * Returns corrected ParsedReceipt or null if re-verify couldn't help.
  */
 export async function geminiReVerify(
   transcript: string,
@@ -82,7 +85,8 @@ Return ONLY the corrected full JSON object. Do not explain, do not use markdown.
   ]
 }`;
 
-  const response = await fetch(GEMINI_URL, {
+
+  const response = await fetch(GENERATE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -110,74 +114,65 @@ Return ONLY the corrected full JSON object. Do not explain, do not use markdown.
   }
 }
 
-// ─── Pass 1: Claude 3.5 Sonnet OCR ──────────────────────────────────────────
-
-async function claudeOCR(imageBase64: string, mimeType: string): Promise<{ transcript: string; tokens: PassTokens }> {
+async function geminiOCR(imageBase64: string, mimeType: string): Promise<{ transcript: string; tokens: PassTokens }> {
+  // Log 3: confirm the image payload is non-empty before sending
   console.log(`[DEBUG] Image Chars: ${imageBase64.length} (~${Math.round(imageBase64.length * 0.75 / 1024)} KB)`);
 
-  const response = await fetch(CLAUDE_URL, {
+  const response = await fetch(OCR_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01',
-      // Required for browser/client-side calls
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 2048,
-      temperature: 0,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mimeType, data: imageBase64 },
-          },
-          { type: 'text', text: OCR_PROMPT },
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mimeType, data: imageBase64 } },
+          { text: OCR_PROMPT },
         ],
       }],
+      generationConfig: {
+        maxOutputTokens: 2048,
+        temperature: 0,
+        // Disable thinking mode — OCR is a direct copy task, not a reasoning task.
+        // With thinking enabled, 2.5-flash burns ~2000 thought tokens then returns
+        // finishReason:"OTHER" with no output at all.
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     }),
   });
 
   if (!response.ok) {
     const status = response.status;
     if (status === 429) throw new Error('TOO_MANY_REQUESTS');
-    if (status === 401) throw new Error('ANTHROPIC_AUTH_ERROR');
     throw new Error(`HTTP_${status}`);
   }
 
   const json = await response.json();
-  const text: string = json.content?.[0]?.text ?? '';
-  if (!text.trim()) throw new Error('EMPTY_RESPONSE');
-
-  const pass1Tokens: PassTokens = {
-    inputTokens:  json.usage?.input_tokens  ?? 0,
-    outputTokens: json.usage?.output_tokens ?? 0,
-  };
-
-  const transcript = text.trim();
-
-  // Check if Claude returned a structured error code
-  if (transcript.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(transcript);
-      if (parsed.error) throw new Error(parsed.error as string);
-    } catch (e) {
-      if (e instanceof Error && !e.message.startsWith('HTTP_')) throw e;
-    }
+  const finishReason: string = json.candidates?.[0]?.finishReason ?? '';
+  const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  if (!text.trim()) {
+    // finishReason "OTHER" with no content = model aborted (often a safety/thinking issue)
+    throw new Error(finishReason === 'OTHER' ? 'MODEL_ABORTED' : 'EMPTY_RESPONSE');
   }
 
+  const pass1Tokens: PassTokens = {
+    inputTokens:  json.usageMetadata?.promptTokenCount     ?? 0,
+    outputTokens: json.usageMetadata?.candidatesTokenCount ?? 0,
+  };
+
+  // Check if Pass 1 returned an error code
+  const transcript = text.trim();
+  if (transcript.startsWith('{')) {
+    const parsed = JSON.parse(transcript);
+    if (parsed.error) throw new Error(parsed.error as string);
+  }
+
+  // Log 1: show exactly what Gemini transcribed before any structuring
   console.log('--- [DEBUG] PASS 1: RAW TRANSCRIPT ---', transcript);
 
   return { transcript, tokens: pass1Tokens };
 }
 
-// ─── Pass 2: Gemini 2.5 Flash structure ─────────────────────────────────────
-
 async function geminiStructure(transcript: string): Promise<{ receipt: ParsedReceipt; tokens: PassTokens }> {
-  const response = await fetch(GEMINI_URL, {
+  const response = await fetch(STRUCTURE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -211,12 +206,11 @@ async function geminiStructure(transcript: string): Promise<{ receipt: ParsedRec
   if (parsed.error) throw new Error(parsed.error as string);
   const receipt = parsed as ParsedReceipt;
 
+  // Log 2: show the full JSON object Gemini built from the transcript
   console.log('--- [DEBUG] PASS 2: STRUCTURED JSON ---', parsed);
 
   return { receipt, tokens: pass2Tokens };
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -227,40 +221,42 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-// ─── Prompts ──────────────────────────────────────────────────────────────────
+const OCR_PROMPT = `You are a high-precision, literal OCR engine. Your ONLY job is to transcribe the EXACT characters you see on this receipt image.
 
-const OCR_PROMPT = `You are a high-fidelity Hebrew OCR engine. Transcribe this receipt image exactly as printed.
+1. THE 'SCANNER' RULE:
+Transcribe exactly what is written. If you see 'סן פלגרינו', do not write 'בירה'.
+If you see 'לימונענע גרוס', do not write 'מיץ'.
+If you see 'חידוש כרטיס מועדון', transcribe it exactly.
+NEVER substitute a word with a 'likely' restaurant item.
 
-CRITICAL — TABLE LAYOUT RULE:
-Receipt item lines span the full width of the paper. Read each row completely LEFT TO RIGHT and output it on one line.
-Hebrew receipts often put the PRICE on the LEFT and the QUANTITY + NAME on the RIGHT, e.g.:
-  "130.00                   2 המבורגר טרי"
-  "18.00                    1 מיצב תפוזים"
-Preserve this layout exactly — do not reorder columns. Output each row on one line as it appears.
-Do NOT scan a full column top-to-bottom before moving to the next column — that misaligns prices and names.
+2. ISRAELI RECEIPT STRUCTURE (Tabit / Cafe Cafe style):
+Read every line strictly from LEFT TO RIGHT. Output each line on one line.
+- Prices: Usually appear on the LEFT. Sometimes twice (unit price then total). Transcribe both if present.
+- Quantities: Usually a single digit (1, 2, 3) next to the item name.
+- Sub-items / toppings: Lines that start with >> or + — transcribe the symbol too.
+- Discounts: Lines with a leading minus sign (e.g., -10.00) — transcribe the minus.
+Example line: 69.00 69.00 1 סלט חלומי ופטריות
 
-Character rules:
-- Copy every character exactly — Hebrew stays Hebrew, digits stay digits
-- If a word is unclear or you are not confident, write [UNCLEAR] instead of guessing
-- DO NOT substitute an unfamiliar word with a common Hebrew word
-- DO NOT translate or normalise anything
+3. ZERO INFERENCE:
+- If a word is 100% unclear, write [?].
+- Do NOT fix typos. Do NOT translate. Do NOT normalise anything.
 
-If the image is unreadable (blurry, cropped, dark, or not a receipt), output only one of:
+If the image is unreadable (blurry, dark, not a receipt), output ONLY one of:
 {"error":"BLURRY"}
-{"error":"CROPPED"}
 {"error":"LOW_LIGHT"}
 {"error":"NOT_A_RECEIPT"}
 
-Otherwise: raw text only, no JSON, no markdown, no explanation.`;
+Otherwise: raw text only, one line per receipt line, no JSON, no markdown, no explanation.`;
 
 const STRUCTURE_PROMPT = `Below is a raw OCR transcript of a receipt. Convert it into a structured JSON object.
 
-CRITICAL RULE FOR ITEM NAMES: Copy item names character-for-character from the transcript. Do NOT translate, normalize, or substitute similar-sounding words. If the transcript says "המבורגר", the name field must be "המבורגר" — never a different word. Treat every item name as an opaque string to be preserved exactly. If the transcript contains [UNCLEAR] for a word, keep it as-is in the name field.
+CRITICAL RULE FOR ITEM NAMES: Copy item names character-for-character from the transcript. Do NOT translate, normalize, or substitute similar-sounding words. If the transcript says "המבורגר", the name field must be "המבורגר" — never a different word. Treat every item name as an opaque string to be preserved exactly. If the transcript contains [?] for a word, keep it as-is in the name field.
 
 HEBREW RECEIPT LAYOUT RULE (very common in Israel):
 Hebrew receipts are right-to-left. The item lines typically look like:
   "18.00                    1 מיצב תפוזים"
   "130.00                   2 המבורגר טרי"
+  "69.00 69.00 1 סלט חלומי ופטריות"
 In this format: PRICE is on the LEFT, then QUANTITY and ITEM NAME are on the RIGHT.
 Parse these lines as: total_price=18.00, quantity=1, name="מיצב תפוזים"
 Do NOT confuse the price (left number) for the quantity.

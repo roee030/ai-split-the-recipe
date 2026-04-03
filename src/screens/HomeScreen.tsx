@@ -80,7 +80,7 @@ export function HomeScreen() {
         mimeType,
         () => setProcessingPhase('analyzing'),
       );
-      const items = parseReceiptToItems(receipt);
+      const items = parseReceiptToItems(receipt, receipt.restaurantName);
 
       // DEV: log the final item mapping so we can see name→price after parsing
       if (import.meta.env.DEV) {
