@@ -232,10 +232,12 @@ function blobToBase64(blob: Blob): Promise<string> {
 const OCR_PROMPT = `You are a high-fidelity Hebrew OCR engine. Transcribe this receipt image exactly as printed.
 
 CRITICAL — TABLE LAYOUT RULE:
-This receipt likely has columns (quantity | item name | price) arranged horizontally per row.
-Read LEFT TO RIGHT across each row before moving to the next row.
-Output each row on one line: e.g. "1 המבורגר 96.00"
-Do NOT read the entire left column first and then the right column. That would misalign names and prices.
+Receipt item lines span the full width of the paper. Read each row completely LEFT TO RIGHT and output it on one line.
+Hebrew receipts often put the PRICE on the LEFT and the QUANTITY + NAME on the RIGHT, e.g.:
+  "130.00                   2 המבורגר טרי"
+  "18.00                    1 מיצב תפוזים"
+Preserve this layout exactly — do not reorder columns. Output each row on one line as it appears.
+Do NOT scan a full column top-to-bottom before moving to the next column — that misaligns prices and names.
 
 Character rules:
 - Copy every character exactly — Hebrew stays Hebrew, digits stay digits
@@ -255,7 +257,15 @@ const STRUCTURE_PROMPT = `Below is a raw OCR transcript of a receipt. Convert it
 
 CRITICAL RULE FOR ITEM NAMES: Copy item names character-for-character from the transcript. Do NOT translate, normalize, or substitute similar-sounding words. If the transcript says "המבורגר", the name field must be "המבורגר" — never a different word. Treat every item name as an opaque string to be preserved exactly. If the transcript contains [UNCLEAR] for a word, keep it as-is in the name field.
 
-LAYOUT RECOVERY RULE: Some receipts have a table layout (quantity | name | price per row). If the transcript shows a block of prices separated from a block of names, try to match them positionally — the Nth price goes with the Nth item. Use this only when names and prices are clearly in separate blocks.
+HEBREW RECEIPT LAYOUT RULE (very common in Israel):
+Hebrew receipts are right-to-left. The item lines typically look like:
+  "18.00                    1 מיצב תפוזים"
+  "130.00                   2 המבורגר טרי"
+In this format: PRICE is on the LEFT, then QUANTITY and ITEM NAME are on the RIGHT.
+Parse these lines as: total_price=18.00, quantity=1, name="מיצב תפוזים"
+Do NOT confuse the price (left number) for the quantity.
+
+LAYOUT RECOVERY RULE: If the transcript shows a block of prices separated from a block of names, try to match them positionally — the Nth price goes with the Nth item.
 
 Item classification:
 - MAIN: a chargeable item or dish with its own price
