@@ -6,7 +6,7 @@ const BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models`;
 
 // Pass 1 uses the Pro model — higher OCR fidelity for Hebrew glyphs.
 // Pass 2 uses Flash — text-only JSON conversion, speed matters more than vision here.
-const OCR_URL       = `${BASE_URL}/gemini-1.5-pro:generateContent?key=${API_KEY}`;
+const OCR_URL       = `${BASE_URL}/gemini-2.5-pro:generateContent?key=${API_KEY}`;
 const STRUCTURE_URL = `${BASE_URL}/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 // Pass 3 (Magic Fix) is text-only re-verify — Flash is fine
 const GENERATE_URL  = STRUCTURE_URL;
