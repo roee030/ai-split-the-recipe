@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Share2, RotateCcw, CheckCircle, AlertCircle } from 'lucide-react';
 import { BackButton } from '../components/common/BackButton';
@@ -7,10 +8,22 @@ import { SummaryCard } from '../components/payment/SummaryCard';
 import { calculateAllTotals } from '../services/splitCalculator';
 import { formatCurrency } from '../utils/currency';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
+import { monitoring } from '../monitoring';
 
 export function SummaryScreen() {
   const { session, setScreen, reset } = useSession();
   const { people, receiptItems, claims, tip, tax, serviceCharge, currency, restaurantName } = session;
+
+  useEffect(() => {
+    monitoring.track('split_completed', {
+      person_count: people.length,
+      item_count: receiptItems.length,
+      has_tip: tip > 0,
+      tip_percent: tip,
+      currency: currency ?? 'ILS',
+      receipt_type: 'unknown',
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totals = calculateAllTotals(
     people.map((p) => p.id),
@@ -32,8 +45,10 @@ export function SummaryScreen() {
       .join('\n');
     if (navigator.share) {
       navigator.share({ title: `${restaurantName ?? 'Bill'} Split`, text }).catch(() => {});
+      monitoring.track('summary_shared', { method: 'native' });
     } else {
       navigator.clipboard.writeText(text).catch(() => {});
+      monitoring.track('summary_shared', { method: 'clipboard' });
     }
   }
 

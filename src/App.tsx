@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useSession } from './context/SplitSessionContext';
+import { monitoring } from './monitoring';
 import { useDirection } from './hooks/useDirection';
 import { HomeScreen } from './screens/HomeScreen';
 import { ProcessingScreen } from './screens/ProcessingScreen';
@@ -16,6 +18,10 @@ import { SettingsScreen } from './screens/SettingsScreen';
 export function AppRouter() {
   useDirection(); // applies dir + lang to <html> element
   const { screen } = useSession();
+
+  useEffect(() => {
+    monitoring.page(screen);
+  }, [screen]);
 
   return (
     <AnimatePresence mode="wait">
