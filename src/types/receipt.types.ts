@@ -25,7 +25,7 @@ export interface RawReceiptItem {
   sub_items?: RawSubItem[];
   unit_price?: number | null;   // Gemini field name (snake_case)
   total_price?: number | null;  // Gemini field name (snake_case)
-  price_missing?: boolean;
+  price_missing?: boolean;  // true when Gemini saw a price but could not read it
 }
 
 export interface ParsedReceipt {
