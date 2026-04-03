@@ -11,10 +11,10 @@ export async function prepareImage(
 ): Promise<{ blob: Blob; mimeType: string }> {
   const img = await createImageBitmap(file);
 
-  // 4× target — cap at 3200px so we don't blow up memory / API limits
-  const MAX = 3200;
+  // Cap at 1600px — Claude's API rejects images > 5 MB, and a 3200px PNG exceeds that
+  const MAX = 1600;
   const longest = Math.max(img.width, img.height);
-  const scale = longest > MAX ? MAX / longest : Math.min(4, MAX / longest);
+  const scale = longest > MAX ? MAX / longest : 1;
 
   const w = Math.round(img.width  * scale);
   const h = Math.round(img.height * scale);
