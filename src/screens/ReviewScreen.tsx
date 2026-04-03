@@ -5,7 +5,8 @@ import { useSession } from '../context/SplitSessionContext';
 import { ScreenContainer } from '../components/common/ScreenContainer';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { BackButton } from '../components/common/BackButton';
-import { createManualItem, checkSubtotalMismatch } from '../services/receiptParser';
+import { createManualItem, checkSubtotalMismatch, parseReceiptToItems } from '../services/receiptParser';
+import { geminiReVerify } from '../services/geminiVision';
 import { monitoring } from '../monitoring';
 
 // Simple category icon based on item name keywords
@@ -32,10 +33,12 @@ function getItemIcon(name: string): string {
 }
 
 export function ReviewScreen() {
-  const { session, setScreen, updateItem, deleteItem, addItem, setServiceCharge } = useSession();
-  const { receiptItems, currency, restaurantName, tax, serviceCharge, subtotal, scanConfidence } = session;
+  const { session, setScreen, updateItem, deleteItem, addItem, setServiceCharge, setReceiptItems } = useSession();
+  const { receiptItems, currency, restaurantName, tax, serviceCharge, subtotal, scanConfidence, lastTranscript } = session;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [serviceAsTip, setServiceAsTip] = useState<boolean | null>(null);
+  const [magicFixLoading, setMagicFixLoading] = useState(false);
+  const [magicFixFailed, setMagicFixFailed] = useState(false);
   const priceInputRef = useRef<HTMLInputElement>(null);
   const editedFieldsRef = useRef<Set<'name' | 'price' | 'quantity'>>(new Set());
 
@@ -57,6 +60,34 @@ export function ReviewScreen() {
     setEditingId(item.id);
     monitoring.track('item_added_manually', { receipt_type: 'unknown' });
   }
+  async function handleMagicFix() {
+    if (!lastTranscript || !subtotal) return;
+    setMagicFixLoading(true);
+    setMagicFixFailed(false);
+
+    const itemsSum = receiptItems.reduce((s, i) => s + i.totalPrice, 0);
+    const corrected = await geminiReVerify(lastTranscript, itemsSum, subtotal);
+
+    if (corrected) {
+      const newItems = parseReceiptToItems(corrected);
+      const newSum = newItems.reduce((s, i) => s + i.totalPrice, 0);
+      const stillMismatched = Math.abs(newSum - subtotal) / subtotal > 0.05;
+
+      if (stillMismatched) {
+        setMagicFixFailed(true);
+        // TODO: fire magic_fix_triggered event (Task 7)
+      } else {
+        setReceiptItems(newItems);
+        // TODO: fire magic_fix_triggered event (Task 7)
+      }
+    } else {
+      setMagicFixFailed(true);
+      // TODO: fire magic_fix_triggered event (Task 7)
+    }
+
+    setMagicFixLoading(false);
+  }
+
   const grandTotal = receiptItems.reduce((s, i) => s + i.totalPrice, 0);
   const subtotalWarning = checkSubtotalMismatch(receiptItems, subtotal ?? null);
 
@@ -147,10 +178,29 @@ export function ReviewScreen() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mx-5 mb-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl flex gap-2 items-start"
+          className="mx-5 mb-3 p-3 bg-amber-50 border border-amber-200 rounded-2xl"
         >
-          <span className="text-lg flex-shrink-0">⚠️</span>
-          <p className="text-xs text-amber-700 font-medium leading-snug">{subtotalWarning}</p>
+          <div className="flex gap-2 items-start mb-2">
+            <span className="text-lg flex-shrink-0">⚠️</span>
+            <p className="text-xs text-amber-700 font-medium leading-snug">
+              {magicFixFailed
+                ? "Gemini couldn't resolve the difference — please check items manually."
+                : subtotalWarning}
+            </p>
+          </div>
+          {lastTranscript && subtotal && !magicFixFailed && (
+            <button
+              onClick={handleMagicFix}
+              disabled={magicFixLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-xl disabled:opacity-60"
+            >
+              {magicFixLoading ? (
+                <>⏳ Asking Gemini…</>
+              ) : (
+                <>✨ Magic Fix</>
+              )}
+            </button>
+          )}
         </motion.div>
       )}
 
