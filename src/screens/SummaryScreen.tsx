@@ -18,8 +18,8 @@ export function SummaryScreen() {
     monitoring.track('split_completed', {
       person_count: people.length,
       item_count: receiptItems.length,
-      has_tip: tip > 0,
-      tip_percent: tip,
+      has_tip: tip.value > 0,
+      tip_percent: tip.mode === 'percent' ? tip.value : 0,
       currency: currency ?? 'ILS',
       receipt_type: 'unknown',
     });
