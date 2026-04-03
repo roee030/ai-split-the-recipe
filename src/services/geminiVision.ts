@@ -2,7 +2,14 @@ import type { ParsedReceipt } from '../types/receipt.types';
 import { type PassTokens, type ScanTokens, calcScanCost } from '../monitoring/tokenCost';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
-const GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+const BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models`;
+
+// Pass 1 uses the Pro model — higher OCR fidelity for Hebrew glyphs.
+// Pass 2 uses Flash — text-only JSON conversion, speed matters more than vision here.
+const OCR_URL       = `${BASE_URL}/gemini-1.5-pro:generateContent?key=${API_KEY}`;
+const STRUCTURE_URL = `${BASE_URL}/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+// Pass 3 (Magic Fix) is text-only re-verify — Flash is fine
+const GENERATE_URL  = STRUCTURE_URL;
 
 export type ScanResult = {
   receipt: ParsedReceipt;
@@ -111,7 +118,7 @@ async function geminiOCR(imageBase64: string, mimeType: string): Promise<{ trans
   // Log 3: confirm the image payload is non-empty before sending
   console.log(`[DEBUG] Image Chars: ${imageBase64.length} (~${Math.round(imageBase64.length * 0.75 / 1024)} KB)`);
 
-  const response = await fetch(GENERATE_URL, {
+  const response = await fetch(OCR_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -127,7 +134,7 @@ async function geminiOCR(imageBase64: string, mimeType: string): Promise<{ trans
 
   if (!response.ok) {
     const status = response.status;
-    if (status === 429) throw new Error('TOO_MANY_REQUESTS');
+    if (status === 429) throw new Error('PRO_TOO_MANY_REQUESTS');
     throw new Error(`HTTP_${status}`);
   }
 
@@ -154,7 +161,7 @@ async function geminiOCR(imageBase64: string, mimeType: string): Promise<{ trans
 }
 
 async function geminiStructure(transcript: string): Promise<{ receipt: ParsedReceipt; tokens: PassTokens }> {
-  const response = await fetch(GENERATE_URL, {
+  const response = await fetch(STRUCTURE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -203,7 +210,14 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-const OCR_PROMPT = `OUTPUT ONLY THE TEXT YOU SEE IN THIS IMAGE. IF YOU SEE HEBREW, WRITE HEBREW. IF YOU SEE ARABIC, WRITE ARABIC. DO NOT TRANSLATE. DO NOT GUESS. IF YOU CANNOT READ A LINE, SKIP IT. START NOW.
+const OCR_PROMPT = `You are a high-fidelity character-by-character Hebrew OCR engine. Transcribe the image exactly as printed.
+
+Rules:
+- Copy every character exactly as it appears — Hebrew, Arabic, Latin, digits, punctuation
+- If a word is unclear, write [UNCLEAR] — do NOT guess based on context
+- DO NOT replace unfamiliar words with common Hebrew words. If you see "מטבע", write "מטבע" — never "מים" or any substitute
+- DO NOT translate, normalise, or reformat anything
+- If you cannot read a line at all, skip it entirely — do not invent a replacement
 
 If the image is unreadable (blurry, cropped, dark, or not a receipt), output only one of:
 {"error":"BLURRY"}
@@ -211,7 +225,7 @@ If the image is unreadable (blurry, cropped, dark, or not a receipt), output onl
 {"error":"LOW_LIGHT"}
 {"error":"NOT_A_RECEIPT"}
 
-Otherwise: raw text only, no JSON, no markdown.`;
+Otherwise: raw text only, no JSON, no markdown, no explanation.`;
 
 const STRUCTURE_PROMPT = `Below is a raw OCR transcript of a receipt. Convert it into a structured JSON object.
 

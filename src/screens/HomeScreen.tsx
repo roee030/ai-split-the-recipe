@@ -141,6 +141,8 @@ export function HomeScreen() {
         setScreen('home');
         setShowPaywall(true);
         return;
+      } else if (raw.includes('PRO_TOO_MANY_REQUESTS')) {
+        message = 'High-Precision mode is busy right now. Please wait 30 seconds and try again.';
       } else if (raw.includes('TOO_MANY_REQUESTS') || raw.includes('429')) {
         message = 'Please wait a moment before scanning again.';
       } else {
