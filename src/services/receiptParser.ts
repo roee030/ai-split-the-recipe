@@ -26,9 +26,9 @@ export function parseReceiptToItems(parsed: ParsedReceipt): ReceiptItem[] {
     const qty = item.quantity || 1;
 
     // Use snake_case fields from Gemini if camelCase not set
-    const rawTotal = item.totalPrice ?? (item as Record<string, unknown>).total_price;
-    const rawUnit  = item.unitPrice  ?? (item as Record<string, unknown>).unit_price;
-    const priceMissing = !!(item as Record<string, unknown>).price_missing;
+    const rawTotal = item.totalPrice ?? item.total_price;
+    const rawUnit  = item.unitPrice  ?? item.unit_price;
+    const priceMissing = !!item.price_missing;
 
     const basePrice = parsePrice(rawTotal);
     const unitPrice = parsePrice(rawUnit);
