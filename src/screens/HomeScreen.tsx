@@ -4,7 +4,7 @@ import { Upload, Receipt, Zap, Camera, X, RotateCcw, ChevronRight, Settings } fr
 import { useSession } from '../context/SplitSessionContext';
 import { useAuth } from '../context/AuthContext';
 import { prepareImage } from '../utils/imageResize';
-import { scanReceipt, testClaudeVision } from '../services/geminiVision';
+import { scanReceipt } from '../services/geminiVision';
 import { parseReceiptToItems } from '../services/receiptParser';
 import { SignInModal } from '../components/auth/SignInModal';
 import { PaywallModal } from '../components/paywall/PaywallModal';
@@ -67,11 +67,6 @@ export function HomeScreen() {
     setProcessingPhase('scanning');
     try {
       const { blob, mimeType } = await prepareImage(file);
-
-      // DEV: simple Claude vision test — open console to see what Claude reads
-      if (import.meta.env.DEV) {
-        testClaudeVision(blob, mimeType).catch(e => console.error('[TEST] Claude test failed:', e));
-      }
 
       // DEV: store the actual JPEG data URL so ReviewScreen can expose it for inspection
       if (import.meta.env.DEV) {

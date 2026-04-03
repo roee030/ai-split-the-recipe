@@ -1,13 +1,26 @@
+/**
+ * Receipt scanning pipeline
+ *
+ * Pass 1 — Claude claude-sonnet-4-5 (vision)
+ *   Image → raw line-by-line transcript
+ *
+ * Pass 2 — Gemini 2.5 Flash (text-only, free tier)
+ *   Transcript → structured ParsedReceipt JSON
+ *
+ * Magic Fix — Gemini 2.5 Flash (text-only)
+ *   Called only when user taps "Magic Fix" on a price mismatch
+ */
+
 import type { ParsedReceipt } from '../types/receipt.types';
 import { type PassTokens, type ScanTokens, calcScanCost } from '../monitoring/tokenCost';
 
-// Pass 1: Claude claude-sonnet-4-5 — mechanical character extraction
 const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string;
-const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
+const CLAUDE_URL    = 'https://api.anthropic.com/v1/messages';
 
-// Pass 2 + Magic Fix: Gemini 2.5 Flash — text-only, free tier
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY as string;
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export type ScanResult = {
   receipt: ParsedReceipt;
@@ -15,154 +28,56 @@ export type ScanResult = {
   transcript: string;
 };
 
-/**
- * DEV TEST — sends the image to Claude with a simple "what do you see?" prompt.
- * Call this from HomeScreen in DEV mode to verify Claude can read the receipt.
- * Output goes to browser console only.
- */
-export async function testClaudeVision(imageBlob: Blob, mimeType: string): Promise<void> {
-  const imageBase64 = await applyDarkroom(imageBlob);
-  console.log('[TEST] Sending image to Claude — simple vision test...');
-
-  const response = await fetch(CLAUDE_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 1024,
-      temperature: 0,
-      messages: [{ role: 'user', content: [
-        { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
-        { type: 'text', text: 'This is a receipt image. Tell me exactly what text you can read on it. List every line you see, word by word.' },
-      ]}],
-    }),
-  });
-
-  const json = await response.json();
-  console.log('[TEST] Claude raw response status:', response.status);
-  console.log('[TEST] Claude sees:\n', json.content?.[0]?.text ?? json);
-}
-
 export async function scanReceipt(
   imageBlob: Blob,
   mimeType: string,
   onPass2Start?: () => void,
 ): Promise<ScanResult> {
-  // Apply darkroom filter then convert to base64
-  const processedBase64 = await applyDarkroom(imageBlob);
-  console.log(`[DEBUG] Processed image: ~${Math.round(processedBase64.length * 0.75 / 1024)} KB`);
+  const imageBase64 = await darkroom(imageBlob);
 
-  // Pass 1: Claude reads the darkroom-filtered image → raw text
-  const { transcript, tokens: pass1Tokens } = await claudeOCR(processedBase64, mimeType);
-
+  const { transcript, tokens: t1 } = await pass1_ocr(imageBase64, mimeType);
   onPass2Start?.();
+  const { receipt,    tokens: t2 } = await pass2_structure(transcript);
 
-  // Pass 2: Gemini converts the transcript → structured JSON
-  const { receipt, tokens: pass2Tokens } = await geminiStructure(transcript);
-
-  const tokens = calcScanCost(pass1Tokens, pass2Tokens);
-  return { receipt, tokens, transcript };
+  return { receipt, tokens: calcScanCost(t1, t2), transcript };
 }
 
-/**
- * Magic Fix — text-only Gemini re-verify when user taps "Magic Fix"
- */
 export async function geminiReVerify(
   transcript: string,
   itemsSum: number,
   printedSubtotal: number,
 ): Promise<ParsedReceipt | null> {
-  const diff = Math.abs(itemsSum - printedSubtotal);
+  const body = MAGIC_FIX_PROMPT
+    .replace('{{TRANSCRIPT}}',  transcript)
+    .replace('{{ITEMS_SUM}}',   itemsSum.toFixed(2))
+    .replace('{{TOTAL}}',       printedSubtotal.toFixed(2))
+    .replace('{{DIFF}}',        Math.abs(itemsSum - printedSubtotal).toFixed(2));
 
-  const prompt = `Receipt transcript below. Item prices don't add up to the printed total.
-
-TRANSCRIPT:
-${transcript}
-
-ITEMS SUM: ${itemsSum.toFixed(2)}
-PRINTED TOTAL: ${printedSubtotal.toFixed(2)}
-DIFFERENCE: ${diff.toFixed(2)}
-
-══ STRICT RULES ══
-You may ONLY fix NUMERIC values (prices, quantities).
-You must NEVER change item names. Copy every name verbatim from the transcript, including typos and [?].
-Wrong numbers are fixable. Wrong names are not your concern.
-
-Look for: misread decimal (25,90 → 25.90), skipped line, merged prices, wrong discount handling.
-Return ONLY corrected JSON, no markdown:
-{
-  "receipt_type": "restaurant",
-  "restaurant_name": string | null,
-  "currency": "ILS",
-  "subtotal": number | null,
-  "tax": number | null,
-  "service_charge": number | null,
-  "confidence": "high" | "medium" | "low",
-  "items": [{ "name": string, "quantity": number, "unit_price": number | null, "total_price": number | null, "price_missing": boolean, "sub_items": [{ "name": string, "price": number | null }] }]
-}`;
-
-  const response = await fetch(GEMINI_URL, {
+  const res = await fetch(GEMINI_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192, temperature: 0.1 },
+      contents: [{ parts: [{ text: body }] }],
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192, temperature: 0 },
     }),
   });
 
-  if (!response.ok) return null;
-  const json = await response.json();
-  const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) return null;
+  if (!res.ok) return null;
+  const json = await res.json();
+  const text  = json.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
   try {
     const parsed = JSON.parse(text);
-    if (parsed.error) return null;
-    return parsed as ParsedReceipt;
+    return parsed.error ? null : (parsed as ParsedReceipt);
   } catch { return null; }
 }
 
-// ─── Darkroom pre-processing ──────────────────────────────────────────────────
-// Converts a PNG blob to a high-contrast grayscale base64 string.
-// Thermal receipt paper → pure white. Ink → pure black. No grey noise.
-// Done here (not in imageResize.ts) so the pipeline is self-contained.
+// ─── Pass 1: Claude vision → transcript ──────────────────────────────────────
 
-async function applyDarkroom(blob: Blob): Promise<string> {
-  const img = await createImageBitmap(blob);
-  const { width, height } = img;
-
-  const canvas = document.createElement('canvas');
-  canvas.width  = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d')!;
-
-  // grayscale(100%)   — remove colour noise from phone cameras
-  // contrast(200%)    — crush grey thermal ink to pure black, bleach paper to pure white
-  ctx.filter = 'grayscale(100%) contrast(200%)';
-  ctx.drawImage(img, 0, 0, width, height);
-
-  return new Promise<string>((resolve, reject) => {
-    canvas.toBlob((b) => {
-      if (!b) { reject(new Error('DARKROOM_FAILED')); return; }
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(b);
-    }, 'image/png');
-  });
-}
-
-// ─── Pass 1: Claude mechanical OCR ───────────────────────────────────────────
-
-async function claudeOCR(
+async function pass1_ocr(
   imageBase64: string,
   mimeType: string,
 ): Promise<{ transcript: string; tokens: PassTokens }> {
-  const response = await fetch(CLAUDE_URL, {
+  const res = await fetch(CLAUDE_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -173,175 +88,218 @@ async function claudeOCR(
     body: JSON.stringify({
       model: 'claude-sonnet-4-5',
       max_tokens: 2048,
-      temperature: 0,    // deterministic — temperature:0 is sufficient, top_p cannot be combined
+      temperature: 0,
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
-        { type: 'text', text: OCR_PROMPT },
+        { type: 'text',  text: OCR_PROMPT },
       ]}],
     }),
   });
 
-  if (!response.ok) {
-    const s = response.status;
+  if (!res.ok) {
+    const s = res.status;
     if (s === 429) throw new Error('TOO_MANY_REQUESTS');
     if (s === 401) throw new Error('ANTHROPIC_AUTH_ERROR');
     throw new Error(`HTTP_${s}`);
   }
 
-  const json = await response.json();
-  const text: string = json.content?.[0]?.text ?? '';
-  if (!text.trim()) throw new Error('EMPTY_RESPONSE');
+  const json = await res.json();
+  const text = (json.content?.[0]?.text ?? '').trim();
+  if (!text) throw new Error('EMPTY_RESPONSE');
 
-  const tokens: PassTokens = {
-    inputTokens:  json.usage?.input_tokens  ?? 0,
-    outputTokens: json.usage?.output_tokens ?? 0,
-  };
-
-  const trimmed = text.trim();
-
-  if (trimmed.startsWith('{')) {
+  // Detect error sentinels from the prompt
+  if (text.startsWith('{')) {
     try {
-      const parsed = JSON.parse(trimmed);
-      if (parsed.error) throw new Error(parsed.error as string);
-    } catch (e) {
-      if (e instanceof Error && ['BLURRY','LOW_LIGHT','NOT_A_RECEIPT'].includes(e.message)) throw e;
+      const e = JSON.parse(text);
+      if (e.error) throw new Error(e.error as string);
+    } catch (err) {
+      if (err instanceof Error && ['BLURRY','LOW_LIGHT','NOT_A_RECEIPT'].includes(err.message))
+        throw err;
     }
   }
 
-  console.log('--- [DEBUG] PASS 1 TRANSCRIPT ---\n' + trimmed);
-  return { transcript: trimmed, tokens };
+  console.log('[OCR] transcript:\n' + text);
+  return {
+    transcript: text,
+    tokens: { inputTokens: json.usage?.input_tokens ?? 0, outputTokens: json.usage?.output_tokens ?? 0 },
+  };
 }
 
-// ─── Pass 2: Gemini Structure ─────────────────────────────────────────────────
+// ─── Pass 2: Gemini text → JSON ───────────────────────────────────────────────
 
-async function geminiStructure(
+async function pass2_structure(
   transcript: string,
 ): Promise<{ receipt: ParsedReceipt; tokens: PassTokens }> {
-  const response = await fetch(GEMINI_URL, {
+  const res = await fetch(GEMINI_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: `${STRUCTURE_PROMPT}\n\n---TRANSCRIPT---\n${transcript}` }] }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        maxOutputTokens: 8192,
-        temperature: 0.1,
-      },
+      contents: [{ parts: [{ text: STRUCTURE_PROMPT + '\n\n---\n' + transcript }] }],
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192, temperature: 0 },
     }),
   });
 
-  if (!response.ok) {
-    const s = response.status;
+  if (!res.ok) {
+    const s = res.status;
     if (s === 429) throw new Error('TOO_MANY_REQUESTS');
     throw new Error(`HTTP_${s}`);
   }
 
-  const json = await response.json();
-  const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-  if (!text.trim()) throw new Error('EMPTY_RESPONSE');
-
-  const tokens: PassTokens = {
-    inputTokens:  json.usageMetadata?.promptTokenCount     ?? 0,
-    outputTokens: json.usageMetadata?.candidatesTokenCount ?? 0,
-  };
+  const json   = await res.json();
+  const text   = (json.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim();
+  if (!text) throw new Error('EMPTY_RESPONSE');
 
   let parsed: ParsedReceipt & { error?: string };
-  try { parsed = JSON.parse(text); }
-  catch {
-    console.error('[DEBUG] Pass 2 non-JSON:', text);
-    throw new Error('PARSE_ERROR');
-  }
+  try   { parsed = JSON.parse(text); }
+  catch { console.error('[Structure] bad JSON:', text); throw new Error('PARSE_ERROR'); }
 
   if (parsed.error) throw new Error(parsed.error);
-  console.log('--- [DEBUG] PASS 2 STRUCTURED ---', parsed);
-  return { receipt: parsed, tokens };
+
+  console.log('[Structure] result:', parsed);
+  return {
+    receipt: parsed,
+    tokens: {
+      inputTokens:  json.usageMetadata?.promptTokenCount     ?? 0,
+      outputTokens: json.usageMetadata?.candidatesTokenCount ?? 0,
+    },
+  };
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Image pre-processing ─────────────────────────────────────────────────────
+// Grayscale + high contrast → thermal paper becomes pure white, ink pure black.
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
+async function darkroom(blob: Blob): Promise<string> {
+  const img    = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width  = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.filter = 'grayscale(100%) contrast(200%)';
+  ctx.drawImage(img, 0, 0);
+
+  return new Promise<string>((resolve, reject) => {
+    canvas.toBlob((b) => {
+      if (!b) { reject(new Error('DARKROOM_FAILED')); return; }
+      const reader = new FileReader();
+      reader.onload  = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(b);
+    }, 'image/png');
   });
 }
 
-// keep export so HomeScreen can still use it for debug panel base64 copy
-export { blobToBase64 };
-
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
-const OCR_PROMPT = `You are a STRICT OCR ENGINE. Your only job is to copy pixels to characters.
+/**
+ * Pass 1 — given to Claude with the receipt image.
+ * Goal: get a faithful line-by-line copy of what is printed.
+ * Claude is a language model — we cannot switch off its Hebrew knowledge.
+ * Instead we constrain the OUTPUT FORMAT so tightly that it can only copy.
+ */
+const OCR_PROMPT = `Look at this receipt image and copy every item line exactly as printed.
 
-══ ABSOLUTE RULES ══
-1. COPY, DO NOT FIX. If the ink shows "מזס מלן", output "מזס מלן". Never "מיץ מלון".
-2. COPY, DO NOT GUESS. If a character is unclear, output [?] in its place. Never guess.
-3. COPY, DO NOT COMPLETE. If a word looks like "לימונ", do not complete it to "לימונדה". Output "לימונ".
-4. WRONG TEXT > HALLUCINATION. A typo is correct. A real word that wasn't there is wrong.
-5. NO MENU KNOWLEDGE. You have never heard of Israeli food. These are unknown symbols.
+Output format — one line per item, nothing else:
+  <price>  <qty> <name as printed>
 
-══ RECEIPT LAYOUT (Tabit system) ══
-Anchor on the PRICE (number on the far left of each line).
-Then: QUANTITY (single digit 1–9), then ITEM NAME in Hebrew.
-Output one line per item:
-  98.00  1 עקרב ופטריות
+Examples:
+  18.00  1 כוסות מזיגה
   136.00 2 חומוסים סיגרה
   713.00 1 פירות מלך הפטה
 
-══ OUTPUT ══
-Raw text only. One line per item.
-Skip: restaurant header, address, phone, total row, tax, QR code.
-Unreadable line → [UNREADABLE].
-Not a receipt → {"error":"NOT_A_RECEIPT"}
-Blurry / dark → {"error":"BLURRY"}`;
+Rules:
+- Price is the number on the LEFT of each line.
+- Qty is the single digit (1 2 3 …) that follows.
+- Name is everything to the RIGHT of the qty — copy it character-for-character.
+- If you cannot read a word clearly, write it as best you can followed by [?].
+- Skip: restaurant name, address, phone, grand total, tax, QR code.
 
-const STRUCTURE_PROMPT = `Convert this receipt transcript into a JSON object.
+If the image is too dark or blurry to read: {"error":"BLURRY"}
+If it is not a receipt: {"error":"NOT_A_RECEIPT"}`;
 
-══ ABSOLUTE RULE — NAMES ARE SACRED ══
-The "name" field must be a VERBATIM copy of the item name from the transcript.
-DO NOT fix spelling. DO NOT translate. DO NOT replace with a similar-sounding word.
-If the transcript says "מזס מלן", the name field must be "מזס מלן".
-If the transcript says "[?]קולה", the name field must be "[?]קולה".
-The transcript is ground truth. Your job is structure extraction only.
+/**
+ * Pass 2 — given to Gemini with the transcript text.
+ * Goal: parse the lines into structured JSON.
+ * Field names match ParsedReceipt exactly (camelCase where required).
+ */
+const STRUCTURE_PROMPT = `Convert this receipt transcript into JSON.
 
-══ LINE FORMAT ══
-PRICE  QUANTITY  NAME
-  "98.00  1 עקרב ופטריות"  → total_price=98, qty=1, name="עקרב ופטריות"
-  "136.00 2 חומוסים סיגרה" → unit_price=68, total_price=136, qty=2, name="חומוסים סיגרה"
+CRITICAL: copy every item name VERBATIM from the transcript. Do not fix, translate, or change any word.
 
-Sub-items: indented or prefixed >> / + → attach to item above.
-Discounts: "-10.00 הנחה" → sub_item with price: -10.
-Totals / tax / service → top-level fields, NOT items.
-[UNREADABLE] lines → include with price_missing: true, name: "[UNREADABLE]".
+Each transcript line is:  PRICE  QTY  NAME
+  "98.00  1 עקרב ופטריות"  → total_price=98, quantity=1, name="עקרב ופטריות"
+  "136.00 2 חומוסים סיגרה" → unit_price=68, total_price=136, quantity=2, name="חומוסים סיגרה"
 
-Numbers: comma decimal "25,90"→25.90 · strip ₪$€ · "1,250.00"→1250.
+- Indented lines / lines starting with + or >> are sub-items of the item above them.
+- Lines starting with - are discounts (negative sub-item price).
+- Total / tax / service lines → top-level fields, NOT items.
+- Numbers: "25,90" → 25.90  |  strip ₪$€  |  "1,250.00" → 1250
 
-Return ONLY JSON, no markdown:
+Return ONLY this JSON (no markdown):
 {
   "isReceipt": true,
   "receipt_type": "restaurant",
-  "restaurant_name": string | null,
+  "restaurantName": string | null,
   "currency": "ILS",
   "subtotal": number | null,
   "tax": number | null,
   "taxPercent": number | null,
-  "service_charge": number | null,
+  "serviceCharge": number | null,
   "total": number | null,
   "confidence": "high" | "medium" | "low",
-  "items": [{
-    "name": string,
-    "quantity": number,
-    "unit_price": number | null,
-    "total_price": number | null,
-    "price_missing": boolean,
-    "sub_items": [{ "name": string, "price": number | null }]
-  }]
+  "items": [
+    {
+      "name": string,
+      "quantity": number,
+      "unit_price": number | null,
+      "total_price": number | null,
+      "price_missing": boolean,
+      "sub_items": [{ "name": string, "price": number | null }]
+    }
+  ]
 }
 
-- quantity defaults to 1
+- quantity defaults to 1 if not shown
 - unit_price = total_price ÷ quantity
-- price unreadable → unit_price: null, total_price: null, price_missing: true
-- confidence = "low" if any price missing
-- No items → { "error": "NO_ITEMS_FOUND" }`;
+- unreadable price → unit_price: null, total_price: null, price_missing: true
+- confidence = "low" if any price is missing or data looks incomplete
+- No items found → { "error": "NO_ITEMS_FOUND" }`;
+
+/**
+ * Magic Fix — sent to Gemini when item prices don't add up.
+ * May only fix numbers. Must never rename items.
+ */
+const MAGIC_FIX_PROMPT = `This receipt transcript was parsed but prices don't add up.
+
+TRANSCRIPT:
+{{TRANSCRIPT}}
+
+Items sum:      {{ITEMS_SUM}}
+Printed total:  {{TOTAL}}
+Difference:     {{DIFF}}
+
+Fix ONLY the numeric values (prices, quantities). Do not change any item name.
+Common causes: comma vs dot decimal, skipped line, merged prices, wrong discount sign.
+
+Return the corrected full JSON in the same schema as before (no markdown):
+{
+  "isReceipt": true,
+  "receipt_type": "restaurant",
+  "restaurantName": string | null,
+  "currency": "ILS",
+  "subtotal": number | null,
+  "tax": number | null,
+  "taxPercent": number | null,
+  "serviceCharge": number | null,
+  "total": number | null,
+  "confidence": "high" | "medium" | "low",
+  "items": [
+    {
+      "name": string,
+      "quantity": number,
+      "unit_price": number | null,
+      "total_price": number | null,
+      "price_missing": boolean,
+      "sub_items": [{ "name": string, "price": number | null }]
+    }
+  ]
+}`;
