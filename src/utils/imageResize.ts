@@ -9,7 +9,7 @@ export async function prepareImage(
 ): Promise<{ blob: Blob; mimeType: string }> {
   const img = await createImageBitmap(file);
 
-  const MAX = 1600;
+  const MAX = 2048;
   const longest = Math.max(img.width, img.height);
   const scale = longest > MAX ? MAX / longest : 1;
 
