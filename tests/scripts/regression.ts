@@ -3,7 +3,9 @@
  *
  * Usage:
  *   npx tsx tests/scripts/regression.ts
- *   npx tsx tests/scripts/regression.ts --threshold-bench   # also tests contrast 0.8/1.0/1.2
+ *   npx tsx tests/scripts/regression.ts --threshold-bench      # test contrast 0.8/1.0/1.2
+ *   npx tsx tests/scripts/regression.ts --apply-corrections    # write failures to autoLearnedCorrections.json
+ *   npx tsx tests/scripts/regression.ts --apply-corrections --threshold-bench  # both
  *
  * Test structure:
  *   tests/receipts/my-receipt.jpg          ← receipt image (jpg or png)
@@ -32,10 +34,12 @@ import dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
-const GEMINI_KEY  = process.env.VITE_GEMINI_API_KEY ?? '';
-const GEMINI_URL  = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
-const BENCH_MODE  = process.argv.includes('--threshold-bench');
-const RECEIPTS_DIR = path.resolve(process.cwd(), 'tests/receipts');
+const GEMINI_KEY         = process.env.VITE_GEMINI_API_KEY ?? '';
+const GEMINI_URL         = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
+const BENCH_MODE         = process.argv.includes('--threshold-bench');
+const APPLY_CORRECTIONS  = process.argv.includes('--apply-corrections');
+const RECEIPTS_DIR       = path.resolve(process.cwd(), 'tests/receipts');
+const CORRECTIONS_FILE   = path.resolve(process.cwd(), 'src/data/autoLearnedCorrections.json');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -187,6 +191,28 @@ async function geminiStructure(transcript: string): Promise<ParsedReceipt> {
   return JSON.parse(text) as ParsedReceipt;
 }
 
+// ─── Auto-corrections writer ──────────────────────────────────────────────────
+
+/**
+ * Merge new OCR→correct mappings into src/data/autoLearnedCorrections.json.
+ * Existing entries are preserved; new entries are added; conflicts keep
+ * the NEW value (the golden file is always the source of truth).
+ */
+function persistCorrections(newEntries: Record<string, string>): number {
+  if (!Object.keys(newEntries).length) return 0;
+
+  let existing: Record<string, string> = {};
+  if (fs.existsSync(CORRECTIONS_FILE)) {
+    try { existing = JSON.parse(fs.readFileSync(CORRECTIONS_FILE, 'utf8')); }
+    catch { /* start fresh if file is corrupt */ }
+  }
+
+  const before = Object.keys(existing).length;
+  const merged = { ...existing, ...newEntries };
+  fs.writeFileSync(CORRECTIONS_FILE, JSON.stringify(merged, null, 2) + '\n', 'utf8');
+  return Object.keys(merged).length - before; // how many NEW entries added
+}
+
 // ─── Core runner ─────────────────────────────────────────────────────────────
 
 async function runOne(imagePath: string, golden: GoldenFile, contrast: number): Promise<RunResult> {
@@ -224,6 +250,16 @@ async function runOne(imagePath: string, golden: GoldenFile, contrast: number): 
       items
         .filter(r => !r.match && golden.corrections![r.got])
         .forEach(r => { suggestions[r.got] = golden.corrections![r.got]; });
+    }
+
+    // Learning engine — write corrections to disk if flag is set
+    if (APPLY_CORRECTIONS && Object.keys(suggestions).length) {
+      const added = persistCorrections(suggestions);
+      if (added > 0) {
+        Object.entries(suggestions).forEach(([ocr, correct]) =>
+          console.log(`  ${C.cyan}✎ auto-correction saved: "${ocr}" → "${correct}"${C.reset}`)
+        );
+      }
     }
 
     return { imageName, contrast, items, accuracy, suggestions };
@@ -306,7 +342,8 @@ async function main() {
     return;
   }
 
-  console.log(`\n${C.bold}SplitSnap OCR Regression Suite${C.reset}  ${images.length} test case(s)  ${BENCH_MODE ? '(threshold bench ON)' : ''}`);
+  const flags = [BENCH_MODE && 'threshold-bench', APPLY_CORRECTIONS && 'apply-corrections'].filter(Boolean).join(' ');
+  console.log(`\n${C.bold}SplitSnap OCR Regression Suite${C.reset}  ${images.length} test case(s)${flags ? `  [${flags}]` : ''}`);
 
   let totalAccuracy = 0;
   const contrastLevels = BENCH_MODE ? [0.8, 1.0, 1.2] : [1.0];

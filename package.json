@@ -11,6 +11,7 @@
     "test": "vitest run",
     "regression": "tsx tests/scripts/regression.ts",
     "regression:bench": "tsx tests/scripts/regression.ts --threshold-bench",
+    "regression:learn": "tsx tests/scripts/regression.ts --apply-corrections",
     "cap:sync": "npm run build && npx cap sync",
     "cap:ios": "npm run build && npx cap sync && npx cap open ios",
     "cap:android": "npm run build && npx cap sync && npx cap open android"
