@@ -130,6 +130,9 @@ async function geminiVisionScan(
 }
 
 // ─── Image pre-processing ─────────────────────────────────────────────────────
+// True binarization: every pixel becomes pure black (#000000) or pure white (#ffffff).
+// CSS contrast() only shifts gray values — it does NOT binarize.
+// Pixel-level thresholding eliminates "gray fuzz" that causes letter misreads.
 
 async function darkroom(blob: Blob): Promise<string> {
   const img    = await createImageBitmap(blob);
@@ -137,9 +140,24 @@ async function darkroom(blob: Blob): Promise<string> {
   canvas.width  = img.width;
   canvas.height = img.height;
   const ctx = canvas.getContext('2d')!;
-  ctx.filter = 'grayscale(100%) contrast(200%)';
+
+  // Step 1 — draw original
   ctx.drawImage(img, 0, 0);
 
+  // Step 2 — binarize: grayscale each pixel, then snap to 0 or 255
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imageData.data;
+  const THRESHOLD = 128; // mid-gray cutoff; ink → black, paper → white
+  for (let i = 0; i < d.length; i += 4) {
+    // luminance-weighted grayscale (ITU-R BT.601)
+    const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const bin  = gray < THRESHOLD ? 0 : 255;
+    d[i] = d[i + 1] = d[i + 2] = bin; // R G B
+    // d[i+3] (alpha) stays unchanged
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // Step 3 — lossless PNG output (no JPEG artifacts)
   return new Promise<string>((resolve, reject) => {
     canvas.toBlob((b) => {
       if (!b) { reject(new Error('DARKROOM_FAILED')); return; }
@@ -153,15 +171,20 @@ async function darkroom(blob: Blob): Promise<string> {
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
-const VISION_PROMPT = `You are scanning an Israeli restaurant receipt. Read every item line and return structured JSON.
+const VISION_PROMPT = `You are a high-speed document scanner reading an Israeli restaurant receipt. Your ONLY job is to copy shapes off the page — letter by letter, digit by digit.
+
+CRITICAL RULES — NO EXCEPTIONS:
+1. LITERAL COPY ONLY. You are NOT allowed to use language knowledge, food knowledge, or context.
+   Treat every Hebrew word as an unknown sequence of shapes. Copy each shape exactly.
+2. DO NOT GUESS. If a character is unclear, write * (asterisk). Never substitute a "likely" letter.
+3. DO NOT CORRECT. If the receipt says "ג'ימזונה" — output "ג'ימזונה". Do not change it to a known dish.
+4. DO NOT TRANSLATE, paraphrase, or normalize any word.
 
 RECEIPT LAYOUT (Tabit system):
-Each item line has PRICE on the LEFT, then QUANTITY (1 2 3…), then ITEM NAME in Hebrew on the right.
+Each item line: PRICE on the LEFT, then QUANTITY (1 2 3…), then ITEM NAME in Hebrew on the right.
   "98.00  1 קבב טלה"          → price=98,  qty=1, name="קבב טלה"
   "136.00 2 רוסטביף סינטה"    → price=136, qty=2, name="רוסטביף סינטה"
   "713.00 1 פריט כללי מטבח"   → price=713, qty=1, name="פריט כללי מטבח"
-
-Copy item names EXACTLY as printed. Do not translate or paraphrase.
 
 Return ONLY this JSON (no markdown):
 {
