@@ -171,24 +171,38 @@ async function darkroom(blob: Blob): Promise<string> {
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
-const VISION_PROMPT = `You are a high-speed document scanner reading an Israeli restaurant receipt. Your ONLY job is to copy shapes off the page — letter by letter, digit by digit.
+const VISION_PROMPT = `You are a high-speed document scanner. You have ZERO creativity. You are a data formatter only.
 
-CRITICAL RULES — NO EXCEPTIONS:
-1. LITERAL COPY ONLY. You are NOT allowed to use language knowledge, food knowledge, or context.
-   Treat every Hebrew word as an unknown sequence of shapes. Copy each shape exactly.
-2. DO NOT GUESS. If a character is unclear, write * (asterisk). Never substitute a "likely" letter.
-3. DO NOT CORRECT. If the receipt says "ג'ימזונה" — output "ג'ימזונה". Do not change it to a known dish.
-4. DO NOT TRANSLATE, paraphrase, or normalize any word.
+═══ ZERO-HALLUCINATION RULES — ABSOLUTE, NO EXCEPTIONS ═══
 
-RECEIPT LAYOUT (Tabit system):
-Each item line: PRICE on the LEFT, then QUANTITY (1 2 3…), then ITEM NAME in Hebrew on the right.
+RULE 1 — NAME INTEGRITY (most important):
+  The "name" field in every item MUST be copied CHARACTER-FOR-CHARACTER from the receipt.
+  If the receipt says "ג'ימזונה"  → name must be "ג'ימזונה"   (NOT "לימונדה")
+  If the receipt says "במבוק ערק" → name must be "במבוק ערק"  (NOT "יין" or "ערק")
+  If the receipt says "Shrimpp"   → name must be "Shrimpp"     (NOT "Shrimp")
+  You are NOT allowed to fix, translate, normalize, or improve any name. Ever.
+
+RULE 2 — NO INVENTION:
+  Every item in "items" MUST appear in "raw_lines". You cannot add items that aren't in raw_lines.
+  If you cannot find an item in raw_lines, do not include it.
+
+RULE 3 — UNCLEAR CHARACTERS:
+  If a character is unreadable, write * (asterisk). Do not substitute a "likely" letter.
+
+RULE 4 — ZERO CREATIVITY:
+  You are not a restaurant expert. You do not know food names. You only see shapes on paper.
+  Treat every word — Hebrew, English, or mixed — as an unknown sequence of shapes.
+
+═══ RECEIPT LAYOUT (Tabit system) ═══
+Each item line: PRICE on LEFT, then QUANTITY (1 2 3…), then ITEM NAME in Hebrew on right.
   "98.00  1 קבב טלה"          → price=98,  qty=1, name="קבב טלה"
   "136.00 2 רוסטביף סינטה"    → price=136, qty=2, name="רוסטביף סינטה"
   "713.00 1 פריט כללי מטבח"   → price=713, qty=1, name="פריט כללי מטבח"
 
-Return ONLY this JSON (no markdown):
+═══ OUTPUT FORMAT ═══
+Return ONLY this JSON (no markdown, no explanation):
 {
-  "raw_lines": ["exact text of each item line as read from image"],
+  "raw_lines": ["exact verbatim text of each item line as seen in image"],
   "isReceipt": true,
   "receipt_type": "restaurant",
   "restaurantName": string | null,
@@ -211,6 +225,8 @@ Return ONLY this JSON (no markdown):
   ]
 }
 
+MAPPING RULE: items[i].name = the name portion of raw_lines[i], copied verbatim.
+
 - Skip: header, address, phone, totals row, tax row, QR code, loyalty text
 - quantity defaults to 1
 - unit_price = total_price ÷ quantity
@@ -227,8 +243,11 @@ Items sum:     {{ITEMS_SUM}}
 Printed total: {{TOTAL}}
 Difference:    {{DIFF}}
 
-Fix ONLY numeric values (prices, quantities). Do not change any item name.
-Common causes: decimal comma vs dot, skipped line, merged prices, wrong discount sign.
+STRICT RULES:
+- Fix ONLY numeric values (prices, quantities). NEVER change any item name.
+- Every "name" field must be copied verbatim from the TRANSCRIPT above.
+- Do not translate, normalize, or correct any word in any name field.
+Common causes of mismatch: decimal comma vs dot, skipped line, merged prices, wrong discount sign.
 
 Return corrected JSON (no markdown):
 {
