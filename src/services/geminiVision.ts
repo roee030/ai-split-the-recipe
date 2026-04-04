@@ -51,12 +51,17 @@ async function callWithFallback<T>(
     const isRetryable = RETRYABLE.has(msg) || msg.startsWith('TOO_MANY_REQUESTS');
 
     if (isRetryable && primary !== FALLBACK_PROVIDER) {
+      // Parse retry delay from error message e.g. "TOO_MANY_REQUESTS:21s"
+      const delayMatch = msg.match(/TOO_MANY_REQUESTS:(\d+)s/);
+      const waitMs     = delayMatch ? (parseInt(delayMatch[1], 10) + 1) * 1000 : 1500;
+
       if (import.meta.env.DEV) {
         console.warn(
-          `%c[Fallback]%c ${passLabel} — ${primary} failed (${msg}). Retrying with ${FALLBACK_PROVIDER}...`,
+          `%c[Fallback]%c ${passLabel} — ${primary} failed (${msg}). Waiting ${waitMs}ms then retrying with ${FALLBACK_PROVIDER}...`,
           'color:#f97316;font-weight:bold', 'color:inherit'
         );
       }
+      await new Promise(r => setTimeout(r, waitMs));
       return fn(FALLBACK_PROVIDER);
     }
     throw err;
@@ -133,6 +138,9 @@ export async function scanReceipt(
           'color:#8b5cf6;font-weight:bold', 'color:inherit'
         );
       }
+
+      // Same inter-pass pause as between Pass 1→2, avoids per-minute RPM limit
+      await new Promise(r => setTimeout(r, 1500));
 
       // Race Pass 3 against the remaining time budget
       const timeoutSentinel = Symbol('timeout');
