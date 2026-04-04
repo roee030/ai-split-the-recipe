@@ -1,12 +1,79 @@
-import {onCall, HttpsError} from "firebase-functions/v2/https";
+import {onCall, onRequest, HttpsError} from "firebase-functions/v2/https";
 import {setGlobalOptions} from "firebase-functions/v2";
 import * as admin from "firebase-admin";
+import * as https from "https";
 import {callGemini} from "./gemini";
 
 admin.initializeApp();
 const db = admin.firestore();
 
 setGlobalOptions({maxInstances: 10});
+
+/**
+ * Anthropic proxy — forwards browser requests to api.anthropic.com.
+ *
+ * Why: Anthropic blocks direct browser-to-API calls (no CORS headers).
+ * This function runs server-side, so no CORS restriction applies.
+ *
+ * Route: POST /api/anthropic/v1/messages
+ *   → forwards to https://api.anthropic.com/v1/messages
+ *
+ * The API key is read from a Firebase secret so it never
+ * appears in the client bundle.
+ */
+export const anthropicProxy = onRequest(
+  {secrets: ["ANTHROPIC_API_KEY"]},
+  (req, res) => {
+    // CORS preflight
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Headers", "Content-Type, anthropic-version");
+
+    if (req.method === "OPTIONS") {
+      res.status(204).send("");
+      return;
+    }
+
+    if (req.method !== "POST") {
+      res.status(405).send("Method Not Allowed");
+      return;
+    }
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      console.error("ANTHROPIC_API_KEY secret not set");
+      res.status(500).send("Proxy misconfigured");
+      return;
+    }
+
+    const body = JSON.stringify(req.body);
+
+    const options = {
+      hostname: "api.anthropic.com",
+      path: "/v1/messages",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body),
+        "x-api-key": apiKey,
+        "anthropic-version":
+          (req.headers["anthropic-version"] as string) ?? "2023-06-01",
+      },
+    };
+
+    const proxyReq = https.request(options, (proxyRes) => {
+      res.status(proxyRes.statusCode ?? 500);
+      proxyRes.pipe(res, {end: true});
+    });
+
+    proxyReq.on("error", (err) => {
+      console.error("Proxy request failed", err);
+      res.status(502).send("Bad Gateway");
+    });
+
+    proxyReq.write(body);
+    proxyReq.end();
+  }
+);
 
 export const scanReceipt = onCall(
   {timeoutSeconds: 60, memory: "256MiB"},
