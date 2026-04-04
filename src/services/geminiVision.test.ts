@@ -23,17 +23,19 @@ vi.mock('../config/providers', () => ({
 
 import { scanReceipt } from './geminiVision';
 import * as adapters from './llmAdapters';
+import type { ParsedReceipt } from '../types/receipt.types';
 
 // Helpers
 const mockTokens = { inputTokens: 10, outputTokens: 20 };
 
-function makeReceipt(overrides = {}) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makeReceipt(overrides: Record<string, any> = {}): ParsedReceipt {
   return {
     isReceipt: true,
     receipt_type: 'restaurant',
     restaurantName: 'Test',
     items: [
-      { name: 'Item A', quantity: 1, unit_price: 50, total_price: 50 },
+      { id: '1', name: 'Item A', quantity: 1, unitPrice: 50, totalPrice: 50, category: 'food', unit_price: 50, total_price: 50 },
     ],
     subtotal: 50,
     tax: null,
@@ -43,7 +45,7 @@ function makeReceipt(overrides = {}) {
     currency: 'ILS',
     confidence: 'high',
     ...overrides,
-  };
+  } as ParsedReceipt;
 }
 
 // ─── callWithFallback behaviour ───────────────────────────────────
