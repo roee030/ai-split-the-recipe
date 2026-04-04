@@ -8,7 +8,7 @@ import { BackButton } from '../components/common/BackButton';
 import { createManualItem, checkSubtotalMismatch, parseReceiptToItems } from '../services/receiptParser';
 import { geminiReVerify } from '../services/geminiVision';
 import { monitoring } from '../monitoring';
-import { saveCorrection } from '../utils/correctionDictionary';
+import { trackManualCorrection } from '../utils/correctionDictionary';
 
 // Simple category icon based on item name keywords
 function getItemIcon(name: string): string {
@@ -35,7 +35,7 @@ function getItemIcon(name: string): string {
 
 export function ReviewScreen() {
   const { session, setScreen, updateItem, deleteItem, addItem, setServiceCharge, setReceiptItems } = useSession();
-  const { receiptItems, currency, restaurantName, tax, serviceCharge, subtotal, scanConfidence, lastTranscript, debugImageUrl } = session;
+  const { receiptItems, currency, restaurantName, tax, serviceCharge, subtotal, scanConfidence, lastTranscript, debugImageUrl, autoFixed } = session;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [serviceAsTip, setServiceAsTip] = useState<boolean | null>(null);
   const [magicFixLoading, setMagicFixLoading] = useState(false);
@@ -53,7 +53,7 @@ export function ReviewScreen() {
       const item = receiptItems.find(i => i.id === editingId);
       const ocrKey = editStartOcrNameRef.current;
       if (item && ocrKey && ocrKey !== item.name) {
-        saveCorrection(restaurantName, ocrKey, item.name);
+        trackManualCorrection(ocrKey, item.name, restaurantName);
       }
     }
 
@@ -220,18 +220,19 @@ export function ReviewScreen() {
                 : subtotalWarning}
             </p>
           </div>
-          {lastTranscript && subtotal && !magicFixFailed && (
+          {lastTranscript && subtotal && !magicFixFailed && !autoFixed && (
             <button
               onClick={handleMagicFix}
               disabled={magicFixLoading}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-xl disabled:opacity-60"
             >
-              {magicFixLoading ? (
-                <>⏳ Asking Gemini…</>
-              ) : (
-                <>✨ Magic Fix</>
-              )}
+              {magicFixLoading ? <>⏳ Asking Gemini…</> : <>✨ Magic Fix</>}
             </button>
+          )}
+          {autoFixed && (
+            <p className="text-xs text-green-600 font-medium mt-1">
+              ✅ Auto-fixed — prices reconciled automatically.
+            </p>
           )}
         </motion.div>
       )}
