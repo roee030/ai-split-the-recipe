@@ -38,6 +38,8 @@ export interface SplitSession {
   processingPhase: 'scanning' | 'analyzing' | null;
   /** DEV-only: full data URL of the image that was sent to Gemini. */
   debugImageUrl: string | null;
+  /** True when the scan pipeline auto-ran Pass 3 (Magic Fix) and it succeeded. */
+  autoFixed: boolean;
 }
 
 export type Screen =

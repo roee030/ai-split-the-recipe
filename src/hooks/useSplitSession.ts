@@ -28,6 +28,7 @@ const DEFAULT_SESSION: SplitSession = {
   lastTranscript: null,
   processingPhase: null,
   debugImageUrl: null,
+  autoFixed: false,
 };
 
 // Screens that get their own browser history entry (back-navigable)
