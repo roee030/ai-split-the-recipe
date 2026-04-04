@@ -171,6 +171,7 @@ async function _claudeTranscribe(
       'Content-Type': 'application/json',
       'x-api-key': ANTHROPIC_KEY,
       'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model: anthropicModelName('claude-sonnet-4-5'),
@@ -274,6 +275,7 @@ async function _claudeStructure(
       'Content-Type': 'application/json',
       'x-api-key': ANTHROPIC_KEY,
       'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
       model: anthropicModelName('claude-sonnet-4-5'),
