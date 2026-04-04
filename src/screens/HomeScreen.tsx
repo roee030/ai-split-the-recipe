@@ -75,7 +75,7 @@ export function HomeScreen() {
         reader.readAsDataURL(blob);
       }
 
-      const { receipt, tokens, transcript } = await scanReceipt(
+      const { receipt, tokens, transcript, autoFixed } = await scanReceipt(
         blob,
         mimeType,
         () => setProcessingPhase('analyzing'),
@@ -91,12 +91,13 @@ export function HomeScreen() {
         })));
       }
       setReceiptData(items, {
-        restaurantName: receipt.restaurantName,
-        tax: receipt.currency === 'ILS' ? 0 : (receipt.tax ?? 0),
-        serviceCharge: receipt.serviceCharge ?? 0,
-        currency: receipt.currency ?? 'ILS',
-        subtotal: receipt.subtotal ?? null,
-        scanConfidence: receipt.confidence ?? null,
+        restaurantName:  receipt.restaurantName,
+        tax:             receipt.currency === 'ILS' ? 0 : (receipt.tax ?? 0),
+        serviceCharge:   receipt.serviceCharge ?? 0,
+        currency:        receipt.currency ?? 'ILS',
+        subtotal:        receipt.subtotal ?? null,
+        scanConfidence:  receipt.confidence ?? null,
+        autoFixed,
       });
       setTranscript(transcript);
       setScreen('review');
