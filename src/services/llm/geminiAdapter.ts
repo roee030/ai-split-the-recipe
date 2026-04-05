@@ -19,11 +19,12 @@ export function geminiUrl(model: string): string {
 
 export function geminiModelName(provider: ProviderName): string {
   switch (provider) {
-    case 'gemini-2.5-flash':      return 'gemini-2.5-flash';
-    case 'gemini-1.5-flash':      return 'gemini-1.5-flash';
-    case 'gemini-2.0-flash-lite': return 'gemini-2.0-flash-lite';
+    case 'gemini-3.1-flash-lite-preview': return 'gemini-3.1-flash-lite-preview';
+    case 'gemini-2.5-flash':              return 'gemini-2.5-flash';
+    case 'gemini-1.5-flash':              return 'gemini-1.5-flash';
+    case 'gemini-2.0-flash-lite':         return 'gemini-2.0-flash-lite';
     case 'gemini-2.0-flash':
-    default:                      return 'gemini-2.0-flash';
+    default:                              return 'gemini-2.0-flash';
   }
 }
 
