@@ -21,7 +21,7 @@ export function BottomSheet({ open, onClose, children, title }: BottomSheetProps
             onClick={onClose}
           />
           <motion.div
-            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 max-h-[85vh] overflow-y-auto"
+            className="fixed bottom-0 inset-x-0 bg-white rounded-t-3xl z-50 p-6 max-h-[85vh] overflow-y-auto"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

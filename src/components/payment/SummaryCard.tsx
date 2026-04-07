@@ -55,7 +55,7 @@ export function SummaryCard({ person, total, currency, index }: SummaryCardProps
                 <div key={i} className="flex justify-between items-center">
                   <span className="text-sm text-primary">
                     {item.name}
-                    {item.shared && <span className="text-xs text-muted ml-1">(shared)</span>}
+                    {item.shared && <span className="text-xs text-muted ms-1">(shared)</span>}
                   </span>
                   <CurrencyDisplay amount={item.amount} currency={currency} className="text-sm text-muted" />
                 </div>

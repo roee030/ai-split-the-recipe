@@ -68,7 +68,7 @@ export function ItemCard({
 
   return (
     <motion.button
-      className={`w-full rounded-2xl border text-left transition-all overflow-hidden ${
+      className={`w-full rounded-2xl border text-start transition-all overflow-hidden ${
         claimedByActive
           ? 'border-transparent'
           : isClaimed
@@ -91,7 +91,7 @@ export function ItemCard({
         {/* Name block — takes all available space, wraps freely */}
         <div className="flex-1 min-w-0">
           {item.quantity > 1 && (
-            <span className="text-[11px] font-bold text-accent bg-accent/10 rounded-md px-1.5 py-0.5 mr-1.5 align-middle">
+            <span className="text-[11px] font-bold text-accent bg-accent/10 rounded-md px-1.5 py-0.5 me-1.5 align-middle">
               ×{item.quantity}
             </span>
           )}
@@ -104,7 +104,7 @@ export function ItemCard({
         </div>
 
         {/* Price — right-aligned, never shrinks */}
-        <div className="flex-shrink-0 text-right ml-2">
+        <div className="flex-shrink-0 text-end ms-2">
           <CurrencyDisplay
             amount={item.totalPrice}
             currency={currency}

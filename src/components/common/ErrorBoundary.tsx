@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
             An unexpected error occurred. Your data is safe — please reload the app.
           </p>
           {import.meta.env.DEV && this.state.error && (
-            <pre className="mb-6 text-left text-xs text-red-600 bg-red-50 rounded-xl p-4 max-w-sm overflow-auto">
+            <pre className="mb-6 text-start text-xs text-red-600 bg-red-50 rounded-xl p-4 max-w-sm overflow-auto">
               {this.state.error.message}
             </pre>
           )}
