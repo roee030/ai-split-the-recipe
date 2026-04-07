@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { Avatar } from '../common/Avatar';
 import type { ReceiptItem } from '../../types/receipt.types';
@@ -51,6 +52,7 @@ interface ItemCardProps {
 export function ItemCard({
   item, claim, activePerson, people, currency, onTap, onLongPress, hideClaimants, myQuantity, onSetQuantity,
 }: ItemCardProps) {
+  const { t } = useTranslation();
   const isClaimed = claim !== undefined;
   const claimedByActive = claim?.personIds.includes(activePerson.id) ?? false;
   const sharedPersonIds = claim && claim.personIds.length > 1 ? claim.personIds : null;
@@ -125,7 +127,7 @@ export function ItemCard({
                   return p ? <Avatar key={pid} initials={p.avatar} color={p.color} size="sm" /> : null;
                 })}
               </div>
-              <span className="text-[11px] text-muted font-medium">Shared ÷ {sharedPersonIds.length}</span>
+              <span className="text-[11px] text-muted font-medium">{t('claim.sharedBy', { count: sharedPersonIds.length })}</span>
             </div>
           )}
 
@@ -141,7 +143,7 @@ export function ItemCard({
                 className="w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center"
               >−</button>
               <span className="text-xs font-semibold text-primary min-w-[44px] text-center">
-                {myQuantity ?? 1} of {item.quantity}
+                {t('claim.myQtyOf', { my: myQuantity ?? 1, total: item.quantity })}
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onSetQuantity(Math.min(item.quantity, (myQuantity ?? 1) + 1)); }}
@@ -167,11 +169,11 @@ export function ItemCard({
             className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-lg text-white"
             style={{ backgroundColor: activePerson.color }}
           >
-            Claimed ✓
+            {t('claim.claimed')}
           </span>
         ) : !isClaimed ? (
           <span className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-lg border-2 border-dashed border-border text-muted">
-            Tap to claim
+            {t('claim.tapToClaim')}
           </span>
         ) : null}
       </div>

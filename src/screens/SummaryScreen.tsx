@@ -46,7 +46,7 @@ export function SummaryScreen() {
       .map((p) => `${p.name}: ${formatCurrency(totals[p.id]?.total ?? 0, currency)}`)
       .join('\n');
     if (navigator.share) {
-      navigator.share({ title: `${restaurantName ?? 'Bill'} Split`, text }).catch(() => {});
+      navigator.share({ title: restaurantName ?? t('app.name'), text }).catch(() => {});
       monitoring.track('summary_shared', { method: 'native' });
     } else {
       navigator.clipboard.writeText(text).catch(() => {});
@@ -64,7 +64,7 @@ export function SummaryScreen() {
         <div className="flex items-start justify-between">
           <div>
             <h2 className="font-display text-3xl font-bold text-primary">{t('summary.title')}</h2>
-            <p className="text-muted text-sm mt-1">{restaurantName ?? 'Bill Split'}</p>
+            <p className="text-muted text-sm mt-1">{restaurantName ?? t('summary.title')}</p>
           </div>
           {checksOut ? (
             <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full">
@@ -88,7 +88,7 @@ export function SummaryScreen() {
             <CurrencyDisplay amount={grandTotal} currency={currency} className="font-display text-2xl font-bold text-white" />
           </div>
           <div>
-            <p className="text-white/50 text-xs uppercase tracking-wider font-semibold text-end">People</p>
+            <p className="text-white/50 text-xs uppercase tracking-wider font-semibold text-end">{t('people.title')}</p>
             <p className="font-display text-2xl font-bold text-white text-end">{people.length}</p>
           </div>
         </div>

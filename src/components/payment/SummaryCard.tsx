@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { CurrencyDisplay } from '../common/CurrencyDisplay';
 import { Avatar } from '../common/Avatar';
 import type { Person, PersonTotal } from '../../types/split.types';
@@ -15,9 +16,10 @@ interface SummaryCardProps {
 
 export function SummaryCard({ person, total, currency, index }: SummaryCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const { t } = useTranslation();
 
   function copyToClipboard() {
-    const text = `${person.name} owes ${formatCurrency(total.total, currency)}`;
+    const text = t('summary.owes', { name: person.name, amount: formatCurrency(total.total, currency) });
     navigator.clipboard.writeText(text).catch(() => {});
   }
 
@@ -55,31 +57,31 @@ export function SummaryCard({ person, total, currency, index }: SummaryCardProps
                 <div key={i} className="flex justify-between items-center">
                   <span className="text-sm text-primary">
                     {item.name}
-                    {item.shared && <span className="text-xs text-muted ms-1">(shared)</span>}
+                    {item.shared && <span className="text-xs text-muted ms-1">{t('summary.sharedLabel')}</span>}
                   </span>
                   <CurrencyDisplay amount={item.amount} currency={currency} className="text-sm text-muted" />
                 </div>
               ))}
               <div className="border-t border-border pt-2 space-y-1 mt-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted">Subtotal</span>
+                  <span className="text-muted">{t('summary.subtotal')}</span>
                   <CurrencyDisplay amount={total.subtotal} currency={currency} className="text-muted" />
                 </div>
                 {total.tipAmount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted">Tip</span>
+                    <span className="text-muted">{t('summary.tip')}</span>
                     <CurrencyDisplay amount={total.tipAmount} currency={currency} className="text-muted" />
                   </div>
                 )}
                 {total.taxAmount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted">Tax</span>
+                    <span className="text-muted">{t('summary.tax')}</span>
                     <CurrencyDisplay amount={total.taxAmount} currency={currency} className="text-muted" />
                   </div>
                 )}
                 {total.serviceAmount > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted">Service</span>
+                    <span className="text-muted">{t('summary.service')}</span>
                     <CurrencyDisplay amount={total.serviceAmount} currency={currency} className="text-muted" />
                   </div>
                 )}
@@ -89,7 +91,7 @@ export function SummaryCard({ person, total, currency, index }: SummaryCardProps
                 className="w-full flex items-center justify-center gap-2 py-2.5 border border-border rounded-xl text-sm text-muted mt-3"
               >
                 <Copy className="w-4 h-4" />
-                Copy "{person.name} owes {formatCurrency(total.total, currency)}"
+                {t('summary.copyOwes', { name: person.name, amount: formatCurrency(total.total, currency) })}
               </button>
             </div>
           </motion.div>

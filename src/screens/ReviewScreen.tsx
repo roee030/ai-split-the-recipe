@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ChevronRight, CheckCircle2, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSession } from '../context/SplitSessionContext';
+import { formatCurrency } from '../utils/currency';
 import { ScreenContainer } from '../components/common/ScreenContainer';
 import { CurrencyDisplay } from '../components/common/CurrencyDisplay';
 import { BackButton } from '../components/common/BackButton';
@@ -145,7 +146,7 @@ export function ReviewScreen() {
                   <p className="text-sm font-semibold text-primary">{t('review.identifyGratuity')}</p>
                 </div>
                 <p className="text-xs text-muted">
-                  Service charge of <CurrencyDisplay amount={serviceCharge} currency={currency} className="font-bold text-primary" /> detected
+                  {t('review.serviceChargeDetected', { amount: formatCurrency(serviceCharge, currency) })}
                 </p>
               </div>
               <div className="flex gap-2">

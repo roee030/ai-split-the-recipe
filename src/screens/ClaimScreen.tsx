@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { BackButton } from '../components/common/BackButton';
 import { useSession } from '../context/SplitSessionContext';
 import { ScreenContainer } from '../components/common/ScreenContainer';
@@ -28,6 +29,7 @@ export function ClaimScreen() {
   const [privateMode, setPrivateMode] = useState(false);
   const [showCover, setShowCover] = useState(false);
 
+  const { t } = useTranslation();
   const activePerson = people[activePersonIndex];
   if (!activePerson) return null;
 
@@ -197,8 +199,8 @@ export function ClaimScreen() {
             {session.splitMode === 'whole' && unclaimedCount > 0
               ? `${unclaimedCount} unclaimed`
               : session.splitMode === 'solo'
-                ? 'See My Total'
-                : 'Done →'}
+                ? t('claim.seeTotal')
+                : t('claim.done')}
             <span>→</span>
           </motion.button>
         </div>
