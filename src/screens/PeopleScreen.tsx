@@ -235,7 +235,7 @@ export function PeopleScreen() {
       </div>
 
       {/* CTA */}
-      <div className="fixed bottom-0 left-0 right-0 p-5 bg-bg/95 backdrop-blur-md border-t border-border">
+      <div className="fixed bottom-0 inset-x-0 p-5 bg-bg/95 backdrop-blur-md border-t border-border">
         <motion.button
           onClick={() => {
             setSplitMode(mode === 'whole' ? 'whole' : 'some');

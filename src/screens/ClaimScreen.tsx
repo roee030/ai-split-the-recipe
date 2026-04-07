@@ -182,7 +182,7 @@ export function ClaimScreen() {
       </div>
 
       {/* Bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-bg/95 backdrop-blur-md border-t border-border">
+      <div className="fixed bottom-0 inset-x-0 bg-bg/95 backdrop-blur-md border-t border-border">
         <div className="px-5 py-4 flex items-center gap-3">
           <div className="flex-1">
             <p className="text-xs font-bold text-muted uppercase tracking-wide">Your Share</p>

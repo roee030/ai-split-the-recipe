@@ -88,8 +88,8 @@ export function SummaryScreen() {
             <CurrencyDisplay amount={grandTotal} currency={currency} className="font-display text-2xl font-bold text-white" />
           </div>
           <div>
-            <p className="text-white/50 text-xs uppercase tracking-wider font-semibold text-right">People</p>
-            <p className="font-display text-2xl font-bold text-white text-right">{people.length}</p>
+            <p className="text-white/50 text-xs uppercase tracking-wider font-semibold text-end">People</p>
+            <p className="font-display text-2xl font-bold text-white text-end">{people.length}</p>
           </div>
         </div>
       </div>
@@ -111,7 +111,7 @@ export function SummaryScreen() {
       </div>
 
       {/* Bottom actions */}
-      <div className="fixed bottom-0 left-0 right-0 p-5 bg-bg/95 backdrop-blur-md border-t border-border space-y-3">
+      <div className="fixed bottom-0 inset-x-0 p-5 bg-bg/95 backdrop-blur-md border-t border-border space-y-3">
         <div className="flex gap-3">
           <motion.button
             onClick={shareAll}

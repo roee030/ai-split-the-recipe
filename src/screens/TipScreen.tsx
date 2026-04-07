@@ -147,7 +147,7 @@ export function TipScreen() {
       </div>
 
       {/* CTA */}
-      <div className="fixed bottom-0 left-0 right-0 p-5 bg-bg/95 backdrop-blur-md border-t border-border">
+      <div className="fixed bottom-0 inset-x-0 p-5 bg-bg/95 backdrop-blur-md border-t border-border">
         <motion.button
           onClick={() => setScreen('summary')}
           className="w-full flex items-center justify-center gap-2 py-4 bg-accent text-white font-bold rounded-2xl shadow-lg shadow-accent/30"

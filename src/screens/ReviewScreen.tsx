@@ -227,7 +227,7 @@ export function ReviewScreen() {
           {/* Tax row */}
           {tax > 0 && (
             <div className="flex items-center gap-3 px-4 py-3.5 border-t border-border">
-              <span className="text-muted text-xs font-semibold w-5 text-right flex-shrink-0">—</span>
+              <span className="text-muted text-xs font-semibold w-5 text-end flex-shrink-0">—</span>
               <span className="text-lg flex-shrink-0">📋</span>
               <span className="flex-1 text-sm text-muted">{t('review.tax')}</span>
               <CurrencyDisplay amount={tax} currency={currency} className="text-sm text-muted font-medium" />
@@ -245,7 +245,7 @@ export function ReviewScreen() {
       </div>
 
       {/* Sticky bottom CTA */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-bg/95 backdrop-blur-md border-t border-border">
+      <div className="fixed bottom-0 inset-x-0 p-4 bg-bg/95 backdrop-blur-md border-t border-border">
         <div className="flex items-center gap-3">
           <div className="flex-1 px-4 py-3 bg-surface border border-border rounded-2xl">
             <p className="text-xs text-muted">{t('review.subtotal')}</p>

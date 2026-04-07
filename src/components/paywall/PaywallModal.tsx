@@ -91,7 +91,7 @@ export function PaywallModal({ open, onDismiss, onUnlocked }: PaywallModalProps)
             role="dialog"
             aria-modal="true"
             aria-label="Upgrade to unlimited"
-            className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl p-6 pb-10 shadow-xl"
+            className="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-3xl p-6 pb-10 shadow-xl"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

@@ -24,7 +24,7 @@ export function ConsentBanner() {
     <AnimatePresence>
       {visible && (
         <motion.div
-          className="fixed bottom-0 left-0 right-0 z-50 bg-surface dark:bg-[#2A2A2A] border-t border-border dark:border-[#3A3A3A] p-4 shadow-2xl"
+          className="fixed bottom-0 inset-x-0 z-50 bg-surface dark:bg-[#2A2A2A] border-t border-border dark:border-[#3A3A3A] p-4 shadow-2xl"
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}

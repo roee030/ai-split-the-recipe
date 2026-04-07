@@ -122,7 +122,7 @@ export function ItemRow({
         </div>
       ) : (
         <div className="flex items-center gap-3 px-4 py-3.5">
-          <span className="text-muted text-xs font-semibold w-5 text-right flex-shrink-0">{index + 1}</span>
+          <span className="text-muted text-xs font-semibold w-5 text-end flex-shrink-0">{index + 1}</span>
           <span className="text-lg flex-shrink-0">{getItemIcon(item.name)}</span>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-1.5">
