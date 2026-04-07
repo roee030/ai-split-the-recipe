@@ -118,3 +118,55 @@ VITE_PASS2_PROVIDER=gemini-3.1-flash-lite-preview
 npm run benchmark       # model benchmark (this script)
 npm run evaluate:seq    # strategy comparison (evaluate.ts)
 ```
+
+---
+
+## Hebrew Localization
+
+Last updated: **2026-04-07**
+Design doc: `docs/plans/2026-04-05-hebrew-rtl-localization-design.md`
+Implementation plan: `docs/plans/2026-04-05-hebrew-rtl-localization.md`
+
+### Components Localized
+
+| Component | Changes |
+|---|---|
+| `src/components/claim/ItemCard.tsx` | "Claimed ✓", "Tap to claim", "Shared ÷ N", "X of Y" → `t(claim.*)` |
+| `src/components/payment/SummaryCard.tsx` | "Subtotal", "Tip", "Tax", "Service", "(shared)", copy text → `t(summary.*)` |
+| `src/components/common/BackButton.tsx` | Hardcoded EN labels + fixed `ChevronLeft` → i18n `nav.*` keys + RTL icon flip |
+| `src/screens/ClaimScreen.tsx` | "See My Total", "Done →", "N unclaimed" → `t(claim.*)` |
+| `src/screens/SummaryScreen.tsx` | "Bill", "Bill Split", "People" → i18n |
+| `src/screens/ReviewScreen.tsx` | Partial service charge JSX → `t('review.serviceChargeDetected', {amount})` |
+| `src/components/review/ItemRow.tsx` | Framer `x` offsets RTL-aware; `text-right` → `text-end` |
+| `src/components/home/PhotoPreviewOverlay.tsx` | Confirm button chevron → RTL-flipped |
+| 9 screen/modal files | `fixed bottom-0 left-0 right-0` → `fixed bottom-0 inset-x-0` |
+
+### CSS Classes Migrated (Physical → Logical)
+
+| Physical | Logical | Semantic |
+|---|---|---|
+| `ml-*` | `ms-*` | margin inline-start |
+| `mr-*` | `me-*` | margin inline-end |
+| `text-left` | `text-start` | align to reading start |
+| `text-right` | `text-end` | align to reading end |
+| `left-0 right-0` (fixed) | `inset-x-0` | full-width sticky bars |
+
+### New i18n Keys Added (all 7 locales)
+
+- `claim.claimed`, `claim.tapToClaim`, `claim.shared`, `claim.sharedBy`, `claim.myQtyOf`
+- `summary.subtotal`, `summary.tip`, `summary.tax`, `summary.service`, `summary.sharedLabel`, `summary.owes`, `summary.copyOwes`
+- `nav.back`, `nav.home`, `nav.reviewItems`, `nav.whosJoining`, `nav.claimDishes`, `nav.tipAndTax`, `nav.summary`
+
+Hebrew values use professional native-reviewed terminology. Other 6 locales use English placeholders pending translation.
+
+### Typography
+
+- Font changed: `DM Sans` → **`Assistant`** (primary) + `DM Sans` (Latin fallback)
+- `Assistant` weights loaded: 400, 500, 600, 700 — covers `font-normal` through `font-bold`
+- Eliminates Times New Roman / system serif fallback for Hebrew on Windows and Android
+
+### Currency
+
+- `formatCurrency` now uses `Intl.NumberFormat('he-IL')` for ILS → renders `120.00 ₪` (symbol after, Israeli standard)
+- All other currencies use `Intl.NumberFormat` with default locale
+- `getCurrencySymbol` unchanged for bare-symbol use cases
